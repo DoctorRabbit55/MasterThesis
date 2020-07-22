@@ -9,7 +9,9 @@ if __name__ == '__main__':
     # GENERAL
     config['GENERAL'] = {'logging level': logging.INFO,
                          'save models': True,
-                         'calc knowledge quotient': True}
+                         'calc knowledge quotient': False,
+                         'train original model': False,
+                         'train final model': False}
 
     # DATASET
     config['DATASET'] = {'name': 'CIFAR10',
@@ -32,6 +34,10 @@ if __name__ == '__main__':
     config['TRAINING_SHUNT_MODEL'] = {'batchsize': 32,
                                       'epochs': 10,
                                       'learning rate': 1e-2}
+
+    config['TRAINING_FINAL_MODEL'] = {'batchsize': 64,
+                                      'epochs': 10,
+                                      'learning rate': 1e-3}
 
     # SHUNT
     config['SHUNT'] = {'location': '7,12',

@@ -75,10 +75,32 @@ class MobileNetV2_extended(Model):
             scale_factor = mobilenet_shape[0] // input_shape[0]
 
             if scale_factor > 1:
-                input = Input(input_shape)
-                x = UpSampling2D((scale_factor, scale_factor))(input)
-                x = mobilenet(x)
-                return MobileNetV2_extended(inputs=input, outputs=x)
+
+                output_residual = queue.Queue(2)
+
+                input_net = Input(input_shape)
+                x = UpSampling2D((scale_factor, scale_factor))(input_net)
+
+                for layer in mobilenet.layers[1:]:
+
+                    config = layer.get_config()
+                    next_layer = layer_from_config({'class_name': layer.__class__.__name__, 'config': config})
+
+                    if isinstance(layer, Add):
+                        x = next_layer([x, output_residual.get()])
+                    else:
+                        x = next_layer(x)
+                    
+                    if "block_" in layer.name and "_project_BN" in layer.name:
+                        if output_residual.full():
+                            output_residual.get()
+                        output_residual.put(x)
+                    if "block_" in layer.name and "_add" in layer.name:
+                        if output_residual.full():
+                            output_residual.get()
+                        output_residual.put(x)
+
+                return MobileNetV2_extended(inputs=input_net, outputs=x)
             else:
                 return MobileNetV2_extended(mobilenet.input, mobilenet.output)
 

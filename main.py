@@ -27,7 +27,10 @@ if __name__ == '__main__':
     config = configparser.ConfigParser()
     config.read(Path(sys.path[0], "config", "main.cfg"))
 
-    calc_knowledge_quotient = config['GENERAL'].getboolean('calc knowledge quotient')
+    modes = {}
+    modes['calc knowledge quotient'] = config['GENERAL'].getboolean('calc knowledge quotient')
+    modes['train original model'] = config['GENERAL'].getboolean('train original model')
+    modes['train final model'] = config['GENERAL'].getboolean('train final model')
     loglevel = config['GENERAL'].getint('logging level')
     save_models = config['GENERAL'].getboolean('save models')
 
@@ -47,6 +50,7 @@ if __name__ == '__main__':
     
     training_original_model = config['TRAINING_ORIGINAL_MODEL']
     training_shunt_model = config['TRAINING_SHUNT_MODEL']
+    training_final_model = config['TRAINING_FINAL_MODEL']
 
     shunt_params = {}
     shunt_params['arch'] = config['SHUNT'].getint('arch')
@@ -125,7 +129,7 @@ if __name__ == '__main__':
     batch_size_original = int(training_original_model['batchsize'])
     learning_rate_original = float(training_original_model['learning rate'])
 
-    model_extended.compile(loss='categorical_crossentropy', optimizer=keras.optimizers.SGD(lr=learning_rate_original, momentum=0.9, decay=learning_rate_original/epochs_original, nesterov=False), metrics=['accuracy'])
+    model_extended.compile(loss='categorical_crossentropy', optimizer=keras.optimizers.SGD(lr=learning_rate_original, momentum=0.9, decay=learning_rate_original/epochs_original), metrics=['accuracy'])
 
     logging.info('')
     logging.info('#######################################################################################################')
@@ -138,8 +142,8 @@ if __name__ == '__main__':
 
     # train model if weights are not loaded
 
-    if not pretrained:
-        model_extended.fit(datagen.flow(x_train, y_train, batch_size=batch_size_original), steps_per_epoch=len(x_train) / batch_size_original, epochs=epochs_original, validation_data=(x_test, y_test), verbose=1)
+    if modes['train original model']:
+        #model_extended.fit(datagen.flow(x_train, y_train, batch_size=batch_size_original), steps_per_epoch=len(x_train) / batch_size_original, epochs=epochs_original, validation_data=(x_test, y_test), verbose=1)
         model_extended.save_weights(str(Path(folder_name_logging, "original_model_weights.h5")))
         
 
@@ -147,10 +151,13 @@ if __name__ == '__main__':
     # test original model
     #val_loss_original, val_acc_original = model_extended.evaluate(x_test, y_test, verbose=1)
     
-    if calc_knowledge_quotient:
+    if modes['calc knowledge quotient']:
         know_quot = model_extended.getKnowledgeQuotients(data=(x_test, y_test))
         logging.info('')
         logging.info('################# RESULT ###################')
+        logging.info('')
+        logging.info('Original model: loss: {:.5f}, acc: {:.5f}'.format(val_loss_original, val_acc_original))
+        logging.info('')
         logging.info(know_quot)
 
         exit()
@@ -172,7 +179,7 @@ if __name__ == '__main__':
     else:
 
         (fm1_train, fm2_train) = ExtractFeatureMaps.getFeatureMaps(model_extended, (loc1,loc2), x_train)
-        (fm1_test, fm2_test) = ExtractFeatureMaps.getFeatureMaps(model_extended, (loc1,loc2), x_train)
+        (fm1_test, fm2_test) = ExtractFeatureMaps.getFeatureMaps(model_extended, (loc1,loc2), x_test)
 
         if shunt_params['save featuremaps']:
             np.save(Path(folder_name_logging, "fm1_train_{}_{}".format(loc1, loc2)), fm1_train)
@@ -181,7 +188,7 @@ if __name__ == '__main__':
             np.save(Path(folder_name_logging, "fm2_test_{}_{}".format(loc1, loc2)), fm2_test)
 
             logging.info('')
-            logging.info('Featuremaps saved to {}!'.format(folder_name_logging))
+            logging.info('Featuremaps saved to {}'.format(folder_name_logging))
     
 
     flops_dropped_blocks = calculateFLOPs_blocks(model_extended, range(loc1,loc2+1))
@@ -198,7 +205,7 @@ if __name__ == '__main__':
     if save_models:
         keras.models.save_model(model_shunt, Path(folder_name_logging, "shunt_model.h5"))
         logging.info('')
-        logging.info('Shunt model saved to {}!'.format(folder_name_logging))
+        logging.info('Shunt model saved to {}'.format(folder_name_logging))
     
     flops_shunt = calculateFLOPs_model(model_shunt)
 
@@ -207,8 +214,8 @@ if __name__ == '__main__':
     learning_rate_shunt = float(training_shunt_model['learning rate'])
 
     model_shunt.compile(loss=keras.losses.mean_squared_error, optimizer=keras.optimizers.Adam(learning_rate=learning_rate_shunt, decay=learning_rate_shunt/epochs_shunt), metrics=['accuracy'])
-    model_shunt.fit(x=fm1_train, y=fm2_train, batch_size=batch_size_shunt, epochs=epochs_shunt, validation_data=(fm1_test, fm2_test), verbose=1)
-    val_acc_shunt, val_loss_shunt = model_shunt.evaluate(fm1_test, fm2_test, verbose=1)
+    #model_shunt.fit(x=fm1_train, y=fm2_train, batch_size=batch_size_shunt, epochs=epochs_shunt, validation_data=(fm1_test, fm2_test), verbose=1)
+    #val_acc_shunt, val_loss_shunt = model_shunt.evaluate(fm1_test, fm2_test, verbose=1)
 
 
     model_final = model_extended.insertShunt(model_shunt, range(loc1, loc2+1))
@@ -231,29 +238,32 @@ if __name__ == '__main__':
     logging.info('Shunt model: {}'.format(flops_shunt))
     logging.info('Final model: {}'.format(flops_final))
 
-    reduction = flops_original['total'] / flops_final['total']
+    reduction = 100*(flops_final['total']-flops_original) / flops_original['total']
+    logging.info('')
+    logging.info('Model got reduced by {:.2f}%!'.format(reduction))
 
-
-    epochs = 10
-    learning_rate = 1e-4
-    model_final.compile(loss='categorical_crossentropy', optimizer=keras.optimizers.SGD(lr=learning_rate, momentum=0.9, decay=learning_rate/epochs, nesterov=False), metrics=['accuracy'])
+    epochs_final = int(training_final_model['epochs'])
+    batch_size_final = int(training_final_model['batchsize'])
+    learning_rate_final = float(training_final_model['learning rate'])
+    model_final.compile(loss='categorical_crossentropy', optimizer=keras.optimizers.SGD(lr=learning_rate_final, momentum=0.9, decay=learning_rate_final/epochs_final, nesterov=False), metrics=['accuracy'])
     
     logging.info('')
     logging.info('#######################################################################################################')
-    logging.info('########################################### ORIGINAL MODEL ############################################')
+    logging.info('############################################ FINAL MODEL ##############################################')
     logging.info('#######################################################################################################')
     logging.info('')
     model_final.summary(print_fn=logger.info)
 
-    val_loss_inserted, val_acc_inserted = model_final.evaluate(x_test, y_test, verbose=1)
+   # val_loss_inserted, val_acc_inserted = model_final.evaluate(x_test, y_test, verbose=1)
 
-    model_final.fit(datagen.flow(x_train, y_train, batch_size=batch_size), steps_per_epoch=len(x_train) / batch_size, epochs=epochs, validation_data=(x_test, y_test), verbose=1)
-    val_loss_finetuned, val_acc_finetuned = model_final.evaluate(x_test, y_test, verbose=1)
+    if  modes['train final model']:
+        model_final.fit(datagen.flow(x_train, y_train, batch_size=batch_size_final), steps_per_epoch=len(x_train) / batch_size_final, epochs=epochs_final, validation_data=(x_test, y_test), verbose=1)
+        val_loss_finetuned, val_acc_finetuned = model_final.evaluate(x_test, y_test, verbose=1)
 
-    if save_models:
-        model_final.save_weights(str(Path(folder_name_logging, "final_model_weights.h5")))
-        logging.info('')
-        logging.info('Final model weights saved to {}'.format(folder_name_logging))
+        if save_models:
+            model_final.save_weights(str(Path(folder_name_logging, "final_model_weights.h5")))
+            logging.info('')
+            logging.info('Final model weights saved to {}'.format(folder_name_logging))
 
     logging.info('')
     logging.info('#######################################################################################################')
@@ -263,4 +273,4 @@ if __name__ == '__main__':
     logging.info('Original model: loss: {:.5f}, acc: {:.5f}'.format(val_loss_original, val_acc_original))
     logging.info('Shunt model: loss: {:.5f}, acc: {:.5f}'.format(val_loss_shunt, val_acc_shunt))
     logging.info('Inserted model: loss: {:.5f}, acc: {:.5f}'.format(val_loss_inserted, val_acc_inserted))
-    logging.info('Finetuned model: loss: {:.5f}, acc: {:.5f}'.format(val_loss_finetuned, val_acc_finetuned))
+    if  modes['train final model']: logging.info('Finetuned model: loss: {:.5f}, acc: {:.5f}'.format(val_loss_finetuned, val_acc_finetuned))
