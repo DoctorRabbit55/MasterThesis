@@ -36,7 +36,7 @@ def getFeatureMaps(model, locs, x_train):
     first_batch = True
     fm1 = fm2 = None
 
-    number_maps = 2*len(x_train)
+    number_maps = len(x_train)
 
     for x_batch in datagen.flow(x_train, None, batch_size=128):
         if first_batch:
