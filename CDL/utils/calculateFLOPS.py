@@ -12,6 +12,7 @@ def calculateFLOPs_model(model):
         if layer.__class__ is Model:
             for layer_ in layer.layers:
                 flops_dic = calculateFLOPs_layer(layer_, flops_dic)
+
         else:
             flops_dic = calculateFLOPs_layer(layer, flops_dic)
 

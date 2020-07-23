@@ -143,13 +143,13 @@ if __name__ == '__main__':
     # train model if weights are not loaded
 
     if modes['train original model']:
-        #model_extended.fit(datagen.flow(x_train, y_train, batch_size=batch_size_original), steps_per_epoch=len(x_train) / batch_size_original, epochs=epochs_original, validation_data=(x_test, y_test), verbose=1)
+        model_extended.fit(datagen.flow(x_train, y_train, batch_size=batch_size_original), steps_per_epoch=len(x_train) / batch_size_original, epochs=epochs_original, validation_data=(x_test, y_test), verbose=1)
         model_extended.save_weights(str(Path(folder_name_logging, "original_model_weights.h5")))
         
 
 
     # test original model
-    #val_loss_original, val_acc_original = model_extended.evaluate(x_test, y_test, verbose=1)
+    val_loss_original, val_acc_original = model_extended.evaluate(x_test, y_test, verbose=1)
     
     if modes['calc knowledge quotient']:
         know_quot = model_extended.getKnowledgeQuotients(data=(x_test, y_test))
@@ -214,8 +214,8 @@ if __name__ == '__main__':
     learning_rate_shunt = float(training_shunt_model['learning rate'])
 
     model_shunt.compile(loss=keras.losses.mean_squared_error, optimizer=keras.optimizers.Adam(learning_rate=learning_rate_shunt, decay=learning_rate_shunt/epochs_shunt), metrics=['accuracy'])
-    #model_shunt.fit(x=fm1_train, y=fm2_train, batch_size=batch_size_shunt, epochs=epochs_shunt, validation_data=(fm1_test, fm2_test), verbose=1)
-    #val_acc_shunt, val_loss_shunt = model_shunt.evaluate(fm1_test, fm2_test, verbose=1)
+    model_shunt.fit(x=fm1_train, y=fm2_train, batch_size=batch_size_shunt, epochs=epochs_shunt, validation_data=(fm1_test, fm2_test), verbose=1)
+    val_acc_shunt, val_loss_shunt = model_shunt.evaluate(fm1_test, fm2_test, verbose=1)
 
 
     model_final = model_extended.insertShunt(model_shunt, range(loc1, loc2+1))
@@ -238,7 +238,7 @@ if __name__ == '__main__':
     logging.info('Shunt model: {}'.format(flops_shunt))
     logging.info('Final model: {}'.format(flops_final))
 
-    reduction = 100*(flops_final['total']-flops_original) / flops_original['total']
+    reduction = 100*(flops_original['total']-flops_final['total']) / flops_original['total']
     logging.info('')
     logging.info('Model got reduced by {:.2f}%!'.format(reduction))
 
@@ -254,7 +254,7 @@ if __name__ == '__main__':
     logging.info('')
     model_final.summary(print_fn=logger.info)
 
-   # val_loss_inserted, val_acc_inserted = model_final.evaluate(x_test, y_test, verbose=1)
+    val_loss_inserted, val_acc_inserted = model_final.evaluate(x_test, y_test, verbose=1)
 
     if  modes['train final model']:
         model_final.fit(datagen.flow(x_train, y_train, batch_size=batch_size_final), steps_per_epoch=len(x_train) / batch_size_final, epochs=epochs_final, validation_data=(x_test, y_test), verbose=1)
