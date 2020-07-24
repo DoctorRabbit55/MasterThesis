@@ -35,7 +35,7 @@ if __name__ == '__main__':
 
     dataset_name = config['DATASET']['name']
     subset_fraction = config['DATASET']['subset fraction']
-    num_classes = config['DATASET'].getint(['number classes'])
+    num_classes = config['DATASET'].getint('number classes')
     
     load_model_from_file = config['MODEL'].getboolean('from file')
     if (load_model_from_file):
