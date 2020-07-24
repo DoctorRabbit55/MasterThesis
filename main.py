@@ -19,7 +19,6 @@ import keras
 
 from matplotlib import pyplot as plt
 
-
 if __name__ == '__main__':
 
     # READ CONFIG
@@ -36,7 +35,7 @@ if __name__ == '__main__':
 
     dataset_name = config['DATASET']['name']
     subset_fraction = config['DATASET']['subset fraction']
-    num_classes = config['DATASET']['number classes']
+    num_classes = config['DATASET'].getint(['number classes'])
     
     load_model_from_file = config['MODEL'].getboolean('from file')
     if (load_model_from_file):
@@ -268,7 +267,7 @@ if __name__ == '__main__':
     if  modes['train final model']:
         print('Train final model:')
         model_final.fit(datagen.flow(x_train, y_train, batch_size=batch_size_final), steps_per_epoch=len(x_train) / batch_size_final, epochs=epochs_final, validation_data=(x_test, y_test), verbose=1)
-        print('Test finted model')
+        print('Test final model')
         val_loss_finetuned, val_acc_finetuned = model_final.evaluate(x_test, y_test, verbose=1)
 
         if save_models:
