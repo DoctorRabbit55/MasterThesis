@@ -13,8 +13,8 @@ class MobileNetV2_extended(Model):
     def __init__(self, inputs, outputs):
         super().__init__(inputs=inputs, outputs=outputs, name='MobileNetV2')
 
-    def call(self):
-        super().call()
+    def call(self, inputs):
+        super().call(inputs)
 
     @classmethod
     def create(self, input_shape=(32,32,3), num_classes=10, is_pretrained=False, mobilenet_shape=(224,224,3)):
