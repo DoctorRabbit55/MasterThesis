@@ -15,7 +15,7 @@ import tensorflow as tf
 from keras.datasets import cifar10
 from keras.utils import to_categorical
 from keras.preprocessing.image import ImageDataGenerator
-from keras_applications.mobilenet_v3 import MobileNetV3Small
+#from keras_applications.mobilenet_v3 import MobileNetV3Small
 import keras
 
 from matplotlib import pyplot as plt
