@@ -15,11 +15,14 @@ import tensorflow as tf
 from keras.datasets import cifar10
 from keras.utils import to_categorical
 from keras.preprocessing.image import ImageDataGenerator
+from keras_applications.mobilenet_v3 import MobileNetV3Small
 import keras
 
 from matplotlib import pyplot as plt
 
 if __name__ == '__main__':
+
+    tf.compat.v1.disable_eager_execution()
 
     # READ CONFIG
 
@@ -78,8 +81,8 @@ if __name__ == '__main__':
         (x_train, y_train), (x_test, y_test) = cifar10.load_data()
         input_shape = (32,32,3)
 
-        x_test  = x_test.astype('float32')  #argmax_ch
-        x_train  = x_train.astype('float32')  #argmax_ch
+        x_test = x_test.astype('float32')  #argmax_ch
+        x_train = x_train.astype('float32')  #argmax_ch
 
         def ch_wise_normalization(X_type, ch):
             mean_ch = X_type[:, :, :, ch].mean()
