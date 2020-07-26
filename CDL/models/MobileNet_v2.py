@@ -5,6 +5,7 @@ from keras.layers import Input, UpSampling2D, GlobalAveragePooling2D, Dense, Con
 from keras import Model
 from keras.layers import deserialize as layer_from_config
 from keras.optimizers import SGD
+from keras.preprocessing.image import ImageDataGenerator
 
 import queue
 
@@ -12,9 +13,6 @@ class MobileNetV2_extended(Model):
 
     def __init__(self, inputs, outputs):
         super().__init__(inputs=inputs, outputs=outputs, name='MobileNetV2')
-
-    #def call(self, inputs):
-    #    return super().call(inputs)
 
     @classmethod
     def create(self, input_shape=(32,32,3), num_classes=10, is_pretrained=False, mobilenet_shape=(224,224,3)):
@@ -77,35 +75,49 @@ class MobileNetV2_extended(Model):
 
             scale_factor = mobilenet_shape[0] // input_shape[0]
 
+            output_residual = queue.Queue(2)
+
+            input_net = Input(input_shape)
             if scale_factor > 1:
-
-                output_residual = queue.Queue(2)
-
-                input_net = Input(input_shape)
                 x = UpSampling2D((scale_factor, scale_factor))(input_net)
-
-                for layer in mobilenet.layers[1:]:
-
-                    config = layer.get_config()
-                    next_layer = layer_from_config({'class_name': layer.__class__.__name__, 'config': config})
-
-                    if isinstance(layer, Add):
-                        x = next_layer([x, output_residual.get()])
-                    else:
-                        x = next_layer(x)
-                    
-                    if "block_" in layer.name and "_project_BN" in layer.name:
-                        if output_residual.full():
-                            output_residual.get()
-                        output_residual.put(x)
-                    if "block_" in layer.name and "_add" in layer.name:
-                        if output_residual.full():
-                            output_residual.get()
-                        output_residual.put(x)
-
-                return MobileNetV2_extended(inputs=input_net, outputs=x)
             else:
-                return MobileNetV2_extended(mobilenet.input, mobilenet.output)
+                x = input_net
+
+            layer = mobilenet.layers[2]
+            config = layer.get_config()
+            config['strides'] = (1,1)
+            config['padding'] = 'same'
+            next_layer = layer_from_config({'class_name': layer.__class__.__name__, 'config': config})
+            x = next_layer(x)
+
+            for layer in mobilenet.layers[3:]:
+
+                config = layer.get_config()
+
+                # CIFAR10 changes
+                if layer.name == 'block_1_depthwise':
+                    config['strides'] = (1,1)
+                    config['padding'] = 'same'
+                if layer.name == 'block_1_pad':
+                    continue
+
+                next_layer = layer_from_config({'class_name': layer.__class__.__name__, 'config': config})
+
+                if isinstance(layer, Add):
+                    x = next_layer([x, output_residual.get()])
+                else:
+                    x = next_layer(x)
+                
+                if "block_" in layer.name and "_project_BN" in layer.name:
+                    if output_residual.full():
+                        output_residual.get()
+                    output_residual.put(x)
+                if "block_" in layer.name and "_add" in layer.name:
+                    if output_residual.full():
+                        output_residual.get()
+                    output_residual.put(x)
+
+            return MobileNetV2_extended(inputs=input_net, outputs=x)
 
     def getKnowledgeQuotients(self, data):
 

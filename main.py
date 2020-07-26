@@ -7,6 +7,7 @@ from pathlib import Path
 import numpy as np
 
 from CDL.models.MobileNet_v2 import MobileNetV2_extended
+#from CDL.models.MobileNet_v3 import MobileNetV3_extended
 from CDL.shunt import Architectures
 from CDL.utils.calculateFLOPS import calculateFLOPs_model, calculateFLOPs_blocks
 
@@ -14,7 +15,6 @@ import tensorflow as tf
 from keras.datasets import cifar10
 from keras.utils import to_categorical
 from keras.preprocessing.image import ImageDataGenerator
-#from keras_applications.mobilenet_v3 import MobileNetV3Small
 import keras
 
 from matplotlib import pyplot as plt
@@ -70,8 +70,8 @@ if __name__ == '__main__':
     logging.basicConfig(filename=log_file_name, level=loglevel , format='%(message)s')
     logger = logging.getLogger(__name__)
 
-    # prepare data
 
+    # prepare data
     x_train = y_train = x_test = y_test = None
     datagen = None
     input_shape = None
@@ -133,14 +133,14 @@ if __name__ == '__main__':
     if model_type == 'MobileNetV3':
         if load_model_from_file:
             model_tmp = keras.models.load_model(model_file_path)
-            model_extended = MobileNetV2_extended(model_tmp.input, model_tmp.output)
+            model_extended = MobileNetV3_extended(model_tmp.input, model_tmp.output)
         elif pretrained_on_imagenet:
-            model_extended = MobileNetV2_extended.create(is_pretrained=True, num_classes=num_classes)
+            model_extended = MobileNetV3_extended.create(is_pretrained=True, num_classes=num_classes)
         else:
             if scale_to_imagenet:
-                model_extended = MobileNetV2_extended.create(is_pretrained=False, num_classes=10, input_shape=input_shape, mobilenet_shape=(224,224,3))
+                model_extended = MobileNetV3_extended.create(is_pretrained=False, num_classes=10, input_shape=input_shape, mobilenet_shape=(224,224,3))
             else:
-                model_extended = MobileNetV2_extended.create(is_pretrained=False, num_classes=10, input_shape=input_shape, mobilenet_shape=(32,32,3))
+                model_extended = MobileNetV3_extended.create(is_pretrained=False, num_classes=10, input_shape=input_shape, mobilenet_shape=(32,32,3))
 
         if pretrained:
             model_extended.load_weights(weights_file_path)
@@ -156,7 +156,8 @@ if __name__ == '__main__':
     logging.info('########################################### ORIGINAL MODEL ############################################')
     logging.info('#######################################################################################################')
     logging.info('')
-    model_extended.summary(print_fn=logger.info)
+    model_extended.summary(print_fn=logger.info, line_length=150)
+    print('{} sucessfully created!'.format(model_type))
 
     flops_original = calculateFLOPs_model(model_extended)
 
@@ -224,7 +225,7 @@ if __name__ == '__main__':
     logging.info('############################################ SHUNT MODEL ##############################################')
     logging.info('#######################################################################################################')
     logging.info('')
-    model_shunt.summary(print_fn=logger.info)
+    model_shunt.summary(print_fn=logger.info, line_length=150)
 
     if save_models:
         keras.models.save_model(model_shunt, Path(folder_name_logging, "shunt_model.h5"))
@@ -278,7 +279,7 @@ if __name__ == '__main__':
     logging.info('############################################ FINAL MODEL ##############################################')
     logging.info('#######################################################################################################')
     logging.info('')
-    model_final.summary(print_fn=logger.info)
+    model_final.summary(print_fn=logger.info, line_length=150)
 
     print('Test shunt inserted model')
     val_loss_inserted, val_acc_inserted = model_final.evaluate(x_test, y_test, verbose=1)
