@@ -7,7 +7,6 @@ from pathlib import Path
 import numpy as np
 
 from CDL.models.MobileNet_v2 import MobileNetV2_extended
-from CDL.shunt import ExtractFeatureMaps
 from CDL.shunt import Architectures
 from CDL.utils.calculateFLOPS import calculateFLOPs_model, calculateFLOPs_blocks
 
@@ -40,6 +39,7 @@ if __name__ == '__main__':
     subset_fraction = config['DATASET']['subset fraction']
     num_classes = config['DATASET'].getint('number classes')
     
+    model_type = config['MODEL']['type']
     load_model_from_file = config['MODEL'].getboolean('from file')
     if (load_model_from_file):
         model_file_path = config['MODEL']['filepath']
@@ -115,19 +115,39 @@ if __name__ == '__main__':
     # load/create model
     model_extended = None
 
-    if load_model_from_file:
-        model_tmp = keras.models.load_model(model_file_path)
-        model_extended = MobileNetV2_extended(model_tmp.input, model_tmp.output)
-    elif pretrained_on_imagenet:
-        model_extended = MobileNetV2_extended.create(is_pretrained=True, num_classes=num_classes)
-    else:
-        if scale_to_imagenet:
-            model_extended = MobileNetV2_extended.create(is_pretrained=False, num_classes=10, input_shape=input_shape, mobilenet_shape=(224,224,3))
+    if model_type == 'MobileNetV2':
+        if load_model_from_file:
+            model_tmp = keras.models.load_model(model_file_path)
+            model_extended = MobileNetV2_extended(model_tmp.input, model_tmp.output)
+        elif pretrained_on_imagenet:
+            model_extended = MobileNetV2_extended.create(is_pretrained=True, num_classes=num_classes)
         else:
-            model_extended = MobileNetV2_extended.create(is_pretrained=False, num_classes=10, input_shape=input_shape, mobilenet_shape=(32,32,3))
+            if scale_to_imagenet:
+                model_extended = MobileNetV2_extended.create(is_pretrained=False, num_classes=10, input_shape=input_shape, mobilenet_shape=(224,224,3))
+            else:
+                model_extended = MobileNetV2_extended.create(is_pretrained=False, num_classes=10, input_shape=input_shape, mobilenet_shape=(32,32,3))
 
-    if pretrained:
-        model_extended.load_weights(weights_file_path)
+        if pretrained:
+            model_extended.load_weights(weights_file_path)
+
+    if model_type == 'MobileNetV3':
+        if load_model_from_file:
+            model_tmp = keras.models.load_model(model_file_path)
+            model_extended = MobileNetV2_extended(model_tmp.input, model_tmp.output)
+        elif pretrained_on_imagenet:
+            model_extended = MobileNetV2_extended.create(is_pretrained=True, num_classes=num_classes)
+        else:
+            if scale_to_imagenet:
+                model_extended = MobileNetV2_extended.create(is_pretrained=False, num_classes=10, input_shape=input_shape, mobilenet_shape=(224,224,3))
+            else:
+                model_extended = MobileNetV2_extended.create(is_pretrained=False, num_classes=10, input_shape=input_shape, mobilenet_shape=(32,32,3))
+
+        if pretrained:
+            model_extended.load_weights(weights_file_path)
+
+    model_extended.save_weights(str(Path(folder_name_logging, "original_model_weights.h5")))
+    model_extended.load_weights(str(Path(folder_name_logging, "original_model_weights.h5")))
+    input('')
 
     epochs_original = int(training_original_model['epochs'])
     batch_size_original = int(training_original_model['batchsize'])
@@ -186,8 +206,8 @@ if __name__ == '__main__':
     else:
         
         print('Feature maps extracting started:')
-        (fm1_train, fm2_train) = ExtractFeatureMaps.getFeatureMaps(model_extended, (loc1,loc2), x_train)
-        (fm1_test, fm2_test) = ExtractFeatureMaps.getFeatureMaps(model_extended, (loc1,loc2), x_test)
+        (fm1_train, fm2_train)  = model_extended.getFeatureMaps((loc1,loc2), x_train)
+        (fm1_test, fm2_test) = model_extended.getFeatureMaps((loc1,loc2), x_test)
 
         if shunt_params['save featuremaps']:
             np.save(Path(folder_name_logging, "fm1_train_{}_{}".format(loc1, loc2)), fm1_train)
