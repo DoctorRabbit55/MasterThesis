@@ -21,7 +21,7 @@ from matplotlib import pyplot as plt
 
 if __name__ == '__main__':
 
-    #tf.compat.v1.disable_eager_execution()
+    tf.compat.v1.disable_eager_execution()
 
     # READ CONFIG
 
