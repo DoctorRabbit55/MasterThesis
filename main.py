@@ -145,10 +145,6 @@ if __name__ == '__main__':
         if pretrained:
             model_extended.load_weights(weights_file_path)
 
-    model_extended.save_weights(str(Path(folder_name_logging, "original_model_weights.h5")))
-    model_extended.load_weights(str(Path(folder_name_logging, "original_model_weights.h5")))
-    input('')
-
     epochs_original = int(training_original_model['epochs'])
     batch_size_original = int(training_original_model['batchsize'])
     learning_rate_original = float(training_original_model['learning rate'])
