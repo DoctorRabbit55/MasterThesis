@@ -19,7 +19,8 @@ if __name__ == '__main__':
                          'number classes': 10}
 
     # MODEL
-    config['MODEL'] = {'from file': True,
+    config['MODEL'] = {'type': 'MobileNetV2',
+                       'from file': True,
                        'filepath': "C:/Users/bha/Documents/CDL/Tensorflow_2.2/python_code/mobilenet_v2-like5__2018-08-26-16-42-57_instance.h5",
                        'pretrained': True,
                        'weightspath': "C:/Users/bha/Documents/CDL/Tensorflow_2.2/python_code/mobilenet_v2-like5__2018-08-26-16-42-57_weights.h5",
