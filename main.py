@@ -7,7 +7,7 @@ from pathlib import Path
 import numpy as np
 
 from CDL.models.MobileNet_v2 import MobileNetV2_extended
-#from CDL.models.MobileNet_v3 import MobileNetV3_extended
+from CDL.models.MobileNet_v3 import MobileNetV3_extended
 from CDL.shunt import Architectures
 from CDL.utils.calculateFLOPS import calculateFLOPs_model, calculateFLOPs_blocks
 
@@ -17,11 +17,17 @@ from keras.utils import to_categorical
 from keras.preprocessing.image import ImageDataGenerator
 import keras
 
+from keras_applications.mobilenet_v3 import MobileNetV3Large
 from matplotlib import pyplot as plt
 
 if __name__ == '__main__':
 
-    tf.compat.v1.disable_eager_execution()
+    from tensorflow.compat.v1 import ConfigProto
+    from tensorflow.compat.v1 import InteractiveSession
+
+    config = ConfigProto()
+    config.gpu_options.polling_inactive_delay_msecs = 30
+    session = InteractiveSession(config=config)
 
     # READ CONFIG
 
@@ -69,7 +75,6 @@ if __name__ == '__main__':
     log_file_name = Path(folder_name_logging, "output.log")
     logging.basicConfig(filename=log_file_name, level=loglevel , format='%(message)s')
     logger = logging.getLogger(__name__)
-
 
     # prepare data
     x_train = y_train = x_test = y_test = None
@@ -123,24 +128,29 @@ if __name__ == '__main__':
             model_extended = MobileNetV2_extended.create(is_pretrained=True, num_classes=num_classes)
         else:
             if scale_to_imagenet:
-                model_extended = MobileNetV2_extended.create(is_pretrained=False, num_classes=10, input_shape=input_shape, mobilenet_shape=(224,224,3))
+                model_extended = MobileNetV2_extended.create(is_pretrained=False, num_classes=num_classes, input_shape=input_shape, mobilenet_shape=(224,224,3))
             else:
-                model_extended = MobileNetV2_extended.create(is_pretrained=False, num_classes=10, input_shape=input_shape, mobilenet_shape=(32,32,3))
+                model_extended = MobileNetV2_extended.create(is_pretrained=False, num_classes=num_classes, input_shape=input_shape, mobilenet_shape=(32,32,3))
 
         if pretrained:
             model_extended.load_weights(weights_file_path)
 
-    if model_type == 'MobileNetV3':
+    if 'MobileNetV3' in model_type:
+
+        is_small = True
+        if model_type[11:] == 'Large':
+            is_small = False
+
         if load_model_from_file:
             model_tmp = keras.models.load_model(model_file_path)
             model_extended = MobileNetV3_extended(model_tmp.input, model_tmp.output)
         elif pretrained_on_imagenet:
-            model_extended = MobileNetV3_extended.create(is_pretrained=True, num_classes=num_classes)
+            model_extended = MobileNetV3_extended.create(is_pretrained=True, num_classes=num_classes, is_small=is_small)
         else:
             if scale_to_imagenet:
-                model_extended = MobileNetV3_extended.create(is_pretrained=False, num_classes=10, input_shape=input_shape, mobilenet_shape=(224,224,3))
+                model_extended = MobileNetV3_extended.create(is_pretrained=False, num_classes=num_classes, is_small=is_small, input_shape=input_shape, mobilenet_shape=(224,224,3))
             else:
-                model_extended = MobileNetV3_extended.create(is_pretrained=False, num_classes=10, input_shape=input_shape, mobilenet_shape=(32,32,3))
+                model_extended = MobileNetV3_extended.create(is_pretrained=False, num_classes=num_classes, is_small=is_small, input_shape=input_shape, mobilenet_shape=(32,32,3))
 
         if pretrained:
             model_extended.load_weights(weights_file_path)
