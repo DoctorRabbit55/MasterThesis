@@ -7,7 +7,7 @@ from pathlib import Path
 import numpy as np
 
 from CDL.models.MobileNet_v2 import MobileNetV2_extended
-from CDL.models.MobileNet_v3 import MobileNetV3_extended
+#from CDL.models.MobileNet_v3 import MobileNetV3_extended
 from CDL.shunt import Architectures
 from CDL.utils.calculateFLOPS import calculateFLOPs_model, calculateFLOPs_blocks
 
@@ -17,7 +17,6 @@ from keras.utils import to_categorical
 from keras.preprocessing.image import ImageDataGenerator
 import keras
 
-from keras_applications.mobilenet_v3 import MobileNetV3Large
 from matplotlib import pyplot as plt
 
 if __name__ == '__main__':
@@ -38,13 +37,14 @@ if __name__ == '__main__':
     modes['calc knowledge quotient'] = config['GENERAL'].getboolean('calc knowledge quotient')
     modes['train original model'] = config['GENERAL'].getboolean('train original model')
     modes['train final model'] = config['GENERAL'].getboolean('train final model')
+    modes['train shunt model'] = config['GENERAL'].getboolean('train shunt model')
     loglevel = config['GENERAL'].getint('logging level')
     save_models = config['GENERAL'].getboolean('save models')
 
     dataset_name = config['DATASET']['name']
     subset_fraction = config['DATASET']['subset fraction']
     num_classes = config['DATASET'].getint('number classes')
-    
+
     model_type = config['MODEL']['type']
     load_model_from_file = config['MODEL'].getboolean('from file')
     if (load_model_from_file):
@@ -154,12 +154,13 @@ if __name__ == '__main__':
 
         if pretrained:
             model_extended.load_weights(weights_file_path)
+            print('Weights loaded successfully!')
 
     epochs_original = int(training_original_model['epochs'])
     batch_size_original = int(training_original_model['batchsize'])
     learning_rate_original = float(training_original_model['learning rate'])
 
-    model_extended.compile(loss='categorical_crossentropy', optimizer=keras.optimizers.SGD(lr=learning_rate_original, momentum=0.9, decay=learning_rate_original/epochs_original), metrics=['accuracy'])
+    model_extended.compile(loss='categorical_crossentropy', optimizer=keras.optimizers.SGD(lr=learning_rate_original, momentum=0.9, decay=0.0), metrics=['accuracy'])
 
     logging.info('')
     logging.info('#######################################################################################################')
@@ -171,19 +172,43 @@ if __name__ == '__main__':
 
     flops_original = calculateFLOPs_model(model_extended)
 
+
     # train model if weights are not loaded
+
+    callback = tf.keras.callbacks.EarlyStopping(monitor='loss', patience=3, verbose=1, restore_best_weights=True)
 
     if modes['train original model']:
         print('Train original model:')
-        model_extended.fit(datagen.flow(x_train, y_train, batch_size=batch_size_original), steps_per_epoch=len(x_train) / batch_size_original, epochs=epochs_original, validation_data=(x_test, y_test), verbose=1)
-        model_extended.save_weights(str(Path(folder_name_logging, "original_model_weights.h5")))
-        
-
+        for epoch in range(epochs_original):
+            history_original = model_extended.fit(datagen.flow(x_train, y_train, batch_size=batch_size_original), steps_per_epoch=len(x_train) / batch_size_original, epochs=1, validation_data=(x_test, y_test), verbose=1, callbacks=[callback])
+            model_extended.save_weights(str(Path(folder_name_logging, "original_model_weights.h5")))
+        '''
+        # summarize history for accuracy
+        plt.plot(history_original.history['accuracy'])
+        plt.plot(history_original.history['val_accuracy'])
+        plt.title('original model accuracy')
+        plt.ylabel('accuracy')
+        plt.xlabel('epoch')
+        plt.legend(['train', 'test'], loc='upper left')
+        plt.savefig(str(Path(folder_name_logging, "original_model_training_accuracy.png")))
+        plt.clf()
+        # summarize history for loss
+        plt.plot(history_original.history['loss'])
+        plt.plot(history_original.history['val_loss'])
+        plt.title('original model loss')
+        plt.ylabel('loss')
+        plt.xlabel('epoch')
+        plt.legend(['train', 'test'], loc='upper left')
+        plt.savefig(str(Path(folder_name_logging, "original_model_training_loss.png")))
+        plt.clf()
+        '''
 
     # test original model
     print('Test original model')
     val_loss_original, val_acc_original = model_extended.evaluate(x_test, y_test, verbose=1)
-    
+    print('Loss: {}'.format(val_loss_original))
+    print('Accuracy: {}'.format(val_acc_original))
+
     if modes['calc knowledge quotient']:
         know_quot = model_extended.getKnowledgeQuotients(data=(x_test, y_test))
         logging.info('')
@@ -201,14 +226,14 @@ if __name__ == '__main__':
     # Feature maps
 
     fm1_train = fm2_train = fm1_test = fm2_test = None
-
+    
     if shunt_params['load featuremaps']:
     
         fm1_train = np.load(Path(shunt_params['featuremapspath'], "fm1_train_{}_{}.npy".format(loc1, loc2)))
         fm2_train = np.load(Path(shunt_params['featuremapspath'], "fm2_train_{}_{}.npy".format(loc1, loc2)))
         fm1_test = np.load(Path(shunt_params['featuremapspath'], "fm1_test_{}_{}.npy".format(loc1, loc2)))
         fm2_test = np.load(Path(shunt_params['featuremapspath'], "fm2_test_{}_{}.npy".format(loc1, loc2)))
-        print('Loaded feature maps successfully!')
+        print('Feature maps loaded successfully!')
 
     else:
         
@@ -225,7 +250,7 @@ if __name__ == '__main__':
             logging.info('')
             logging.info('Featuremaps saved to {}'.format(folder_name_logging))
     
-
+    
     flops_dropped_blocks = calculateFLOPs_blocks(model_extended, range(loc1,loc2+1))
 
     model_shunt = Architectures.createShunt(shunt_params['input shape'],shunt_params['output shape'], arch=shunt_params['arch'])
@@ -249,11 +274,32 @@ if __name__ == '__main__':
     learning_rate_shunt = float(training_shunt_model['learning rate'])
 
     model_shunt.compile(loss=keras.losses.mean_squared_error, optimizer=keras.optimizers.Adam(learning_rate=learning_rate_shunt, decay=learning_rate_shunt/epochs_shunt), metrics=['accuracy'])
-    print('Train shunt model:')
-    model_shunt.fit(x=fm1_train, y=fm2_train, batch_size=batch_size_shunt, epochs=epochs_shunt, validation_data=(fm1_test, fm2_test), verbose=1)
-    print('Test shunt model')
-    val_loss_shunt, val_acc_shunt = model_shunt.evaluate(fm1_test, fm2_test, verbose=1)
+    
+    if modes['train shunt model']:
+        print('Train shunt model:')
+        history_shunt = model_shunt.fit(x=fm1_train, y=fm2_train, batch_size=batch_size_shunt, epochs=epochs_shunt, validation_data=(fm1_test, fm2_test), verbose=1)
 
+        # summarize history for accuracy
+        plt.plot(history_shunt.history['accuracy'])
+        plt.plot(history_shunt.history['val_accuracy'])
+        plt.title('shunt model accuracy')
+        plt.ylabel('accuracy')
+        plt.xlabel('epoch')
+        plt.legend(['train', 'test'], loc='upper left')
+        plt.savefig(str(Path(folder_name_logging, "shunt_model_training_accuracy.png")))
+        plt.clf()
+        # summarize history for loss
+        plt.plot(history_shunt.history['loss'])
+        plt.plot(history_shunt.history['val_loss'])
+        plt.title('original model loss')
+        plt.ylabel('loss')
+        plt.xlabel('epoch')
+        plt.legend(['train', 'test'], loc='upper left')
+        plt.savefig(str(Path(folder_name_logging, "shunt_model_training_loss.png")))
+        plt.clf()
+
+    print('Test shunt model')
+#    val_loss_shunt, val_acc_shunt = model_shunt.evaluate(fm1_test, fm2_test, verbose=1)
 
     model_final = model_extended.insertShunt(model_shunt, range(loc1, loc2+1))
 
@@ -296,9 +342,28 @@ if __name__ == '__main__':
 
     if  modes['train final model']:
         print('Train final model:')
-        model_final.fit(datagen.flow(x_train, y_train, batch_size=batch_size_final), steps_per_epoch=len(x_train) / batch_size_final, epochs=epochs_final, validation_data=(x_test, y_test), verbose=1)
+        history_final = model_final.fit(datagen.flow(x_train, y_train, batch_size=batch_size_final), steps_per_epoch=len(x_train) / batch_size_final, epochs=epochs_final, validation_data=(x_test, y_test), verbose=1)
         print('Test final model')
         val_loss_finetuned, val_acc_finetuned = model_final.evaluate(x_test, y_test, verbose=1)
+
+        # summarize history for accuracy
+        plt.plot(history_final.history['accuracy'])
+        plt.plot(history_final.history['val_accuracy'])
+        plt.title('final model accuracy')
+        plt.ylabel('accuracy')
+        plt.xlabel('epoch')
+        plt.legend(['train', 'test'], loc='upper left')
+        plt.savefig(str(Path(folder_name_logging, "final_model_training_accuracy.png")))
+        plt.clf()
+        # summarize history for loss
+        plt.plot(history_final.history['loss'])
+        plt.plot(history_final.history['val_loss'])
+        plt.title('final model loss')
+        plt.ylabel('loss')
+        plt.xlabel('epoch')
+        plt.legend(['train', 'test'], loc='upper left')
+        plt.savefig(str(Path(folder_name_logging, "final_model_training_loss.png")))
+        plt.clf()
 
         if save_models:
             model_final.save_weights(str(Path(folder_name_logging, "final_model_weights.h5")))
