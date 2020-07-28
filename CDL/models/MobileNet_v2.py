@@ -7,6 +7,8 @@ from keras.layers import deserialize as layer_from_config
 from keras.optimizers import SGD
 from keras.preprocessing.image import ImageDataGenerator
 
+import numpy as np
+
 import queue
 
 class MobileNetV2_extended(Model):
@@ -83,6 +85,7 @@ class MobileNetV2_extended(Model):
             else:
                 x = input_net
 
+            # CIFAR10 changes
             layer = mobilenet.layers[2]
             config = layer.get_config()
             config['strides'] = (1,1)
