@@ -4,7 +4,7 @@ from keras.layers import deserialize as layer_from_config
 
 import unittest
 from keras.applications import MobileNetV2
-from keras_applications.mobilenet_v3 import MobileNetV3Small
+#from keras_applications.mobilenet_v3 import MobileNetV3Small
 
 def hard_swish(x):
     return Multiply()([Activation(keras.activations.hard_sigmoid)(x), x])
