@@ -299,7 +299,9 @@ if __name__ == '__main__':
         plt.clf()
 
     print('Test shunt model')
-#    val_loss_shunt, val_acc_shunt = model_shunt.evaluate(fm1_test, fm2_test, verbose=1)
+    val_loss_shunt, val_acc_shunt = model_shunt.evaluate(fm1_test, fm2_test, verbose=1)
+    print('Loss: {}'.format(val_loss_shunt))
+    print('Accuracy: {}'.format(val_acc_shunt))
 
     model_final = model_extended.insertShunt(model_shunt, range(loc1, loc2+1))
 
@@ -339,12 +341,16 @@ if __name__ == '__main__':
 
     print('Test shunt inserted model')
     val_loss_inserted, val_acc_inserted = model_final.evaluate(x_test, y_test, verbose=1)
+    print('Loss: {}'.format(val_loss_inserted))
+    print('Accuracy: {}'.format(val_acc_inserted))
 
     if  modes['train final model']:
         print('Train final model:')
         history_final = model_final.fit(datagen.flow(x_train, y_train, batch_size=batch_size_final), steps_per_epoch=len(x_train) / batch_size_final, epochs=epochs_final, validation_data=(x_test, y_test), verbose=1)
         print('Test final model')
         val_loss_finetuned, val_acc_finetuned = model_final.evaluate(x_test, y_test, verbose=1)
+        print('Loss: {}'.format(val_loss_inserted))
+        print('Accuracy: {}'.format(val_acc_inserted))
 
         # summarize history for accuracy
         plt.plot(history_final.history['accuracy'])
