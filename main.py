@@ -33,7 +33,8 @@ if __name__ == '__main__':
     # READ CONFIG
 
     config = configparser.ConfigParser()
-    config.read(Path(sys.path[0], "config", "main.cfg"))
+    #config.read(Path(sys.path[0], "config", "main.cfg"))
+    config.read(Path(sys.path[0], "main.cfg"))
 
     modes = {}
     modes['calc knowledge quotient'] = config['GENERAL'].getboolean('calc knowledge quotient')
