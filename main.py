@@ -10,6 +10,8 @@ from CDL.models.MobileNet_v2 import MobileNetV2_extended
 #from CDL.models.MobileNet_v3 import MobileNetV3_extended
 from CDL.shunt import Architectures
 from CDL.utils.calculateFLOPS import calculateFLOPs_model, calculateFLOPs_blocks
+from CDL.utils.dataset_utils import *
+from CDL.utils.generic_utils import *
 
 import tensorflow as tf
 from keras.datasets import cifar10
@@ -65,6 +67,10 @@ if __name__ == '__main__':
     shunt_params['input shape'] = tuple(map(int, config['SHUNT']['input shape'].split(',')))
     shunt_params['output shape'] = tuple(map(int, config['SHUNT']['output shape'].split(',')))
     shunt_params['locations'] = tuple(map(int, config['SHUNT']['location'].split(',')))
+    shunt_params['from_file'] = config['SHUNT'].getboolean('from file')
+    shunt_params['filepath'] = config['SHUNT']['filepath']
+    shunt_params['pretrained'] = config['SHUNT'].getboolean('pretrained')
+    shunt_params['weigthspath'] = config['SHUNT']['weightspath']
     shunt_params['load featuremaps'] = config['SHUNT'].getboolean('load featuremaps')
     if shunt_params['load featuremaps']: shunt_params['featuremapspath'] = config['SHUNT']['featuremapspath']
     shunt_params['save featuremaps'] = config['SHUNT'].getboolean('save featuremaps')
@@ -83,27 +89,8 @@ if __name__ == '__main__':
 
     if dataset_name == 'CIFAR10':
 
-        (x_train, y_train), (x_test, y_test) = cifar10.load_data()
+        (x_train, y_train), (x_test, y_test) = load_and_preprocess_CIFAR10()
         input_shape = (32,32,3)
-
-        x_test = x_test.astype('float32')  #argmax_ch
-        x_train = x_train.astype('float32')  #argmax_ch
-
-        def ch_wise_normalization(X_type, ch):
-            mean_ch = X_type[:, :, :, ch].mean()
-            std_ch = X_type[:, :, :, ch].std()
-            X_type[:, :, :, ch] = (X_type[:, :, :, ch] - mean_ch) / std_ch
-            return X_type[:, :, :, ch]
-
-        x_test[:, :, :, 0]  = ch_wise_normalization(x_test, 0)
-        x_test[:, :, :, 1]  = ch_wise_normalization(x_test, 1)
-        x_test[:, :, :, 2]  = ch_wise_normalization(x_test, 2)
-        x_train[:, :, :, 0]  = ch_wise_normalization(x_train, 0)
-        x_train[:, :, :, 1]  = ch_wise_normalization(x_train, 1)
-        x_train[:, :, :, 2]  = ch_wise_normalization(x_train, 2)
-
-        y_test  = to_categorical(y_test, 10)
-        y_train = to_categorical(y_train, 10)
 
         datagen = ImageDataGenerator(
             featurewise_center=False, 
@@ -116,7 +103,7 @@ if __name__ == '__main__':
         datagen.fit(x_train)
 
         print('CIFAR10 was loaded successfully!')
-
+    
     # load/create model
     model_extended = None
 
@@ -180,26 +167,7 @@ if __name__ == '__main__':
         for epoch in range(epochs_original):
             history_original = model_extended.fit(datagen.flow(x_train, y_train, batch_size=batch_size_original), steps_per_epoch=len(x_train) / batch_size_original, epochs=1, validation_data=(x_test, y_test), verbose=1, callbacks=[callback])
             model_extended.save_weights(str(Path(folder_name_logging, "original_model_weights.h5")))
-        '''
-        # summarize history for accuracy
-        plt.plot(history_original.history['accuracy'])
-        plt.plot(history_original.history['val_accuracy'])
-        plt.title('original model accuracy')
-        plt.ylabel('accuracy')
-        plt.xlabel('epoch')
-        plt.legend(['train', 'test'], loc='upper left')
-        plt.savefig(str(Path(folder_name_logging, "original_model_training_accuracy.png")))
-        plt.clf()
-        # summarize history for loss
-        plt.plot(history_original.history['loss'])
-        plt.plot(history_original.history['val_loss'])
-        plt.title('original model loss')
-        plt.ylabel('loss')
-        plt.xlabel('epoch')
-        plt.legend(['train', 'test'], loc='upper left')
-        plt.savefig(str(Path(folder_name_logging, "original_model_training_loss.png")))
-        plt.clf()
-        '''
+        save_history_plot(history_original, "original", folder_name_logging)
 
     # test original model
     print('Test original model')
@@ -250,7 +218,11 @@ if __name__ == '__main__':
     
     flops_dropped_blocks = calculateFLOPs_blocks(model_extended, range(loc1,loc2+1))
 
-    model_shunt = Architectures.createShunt(shunt_params['input shape'],shunt_params['output shape'], arch=shunt_params['arch'])
+    if shunt_params['from_file']:
+        model_shunt = keras.models.load_model(shunt_params['filepath'])
+        print('Shunt model loaded successfully!')
+    else:
+        model_shunt = Architectures.createShunt(shunt_params['input shape'],shunt_params['output shape'], arch=shunt_params['arch'])
     
     logging.info('')
     logging.info('#######################################################################################################')
@@ -264,6 +236,10 @@ if __name__ == '__main__':
         logging.info('')
         logging.info('Shunt model saved to {}'.format(folder_name_logging))
     
+    if shunt_params['pretrained']:
+        model_shunt.load_weights(shunt_params['weightspath'])
+        print('Shunt weights loaded successfully!')
+
     flops_shunt = calculateFLOPs_model(model_shunt)
 
     epochs_shunt = int(training_shunt_model['epochs'])
@@ -271,29 +247,13 @@ if __name__ == '__main__':
     learning_rate_shunt = float(training_shunt_model['learning rate'])
 
     model_shunt.compile(loss=keras.losses.mean_squared_error, optimizer=keras.optimizers.Adam(learning_rate=learning_rate_shunt, decay=learning_rate_shunt/epochs_shunt), metrics=['accuracy'])
-    
+
     if modes['train shunt model']:
         print('Train shunt model:')
         history_shunt = model_shunt.fit(x=fm1_train, y=fm2_train, batch_size=batch_size_shunt, epochs=epochs_shunt, validation_data=(fm1_test, fm2_test), verbose=1, callbacks=[callback])
+        save_history_plot(history_shunt, "shunt", folder_name_logging)
+        model_shunt.save_weights(str(Path(folder_name_logging, "shunt_model_weights.h5")))
 
-        # summarize history for accuracy
-        plt.plot(history_shunt.history['accuracy'])
-        plt.plot(history_shunt.history['val_accuracy'])
-        plt.title('shunt model accuracy')
-        plt.ylabel('accuracy')
-        plt.xlabel('epoch')
-        plt.legend(['train', 'test'], loc='upper left')
-        plt.savefig(str(Path(folder_name_logging, "shunt_model_training_accuracy.png")))
-        plt.clf()
-        # summarize history for loss
-        plt.plot(history_shunt.history['loss'])
-        plt.plot(history_shunt.history['val_loss'])
-        plt.title('original model loss')
-        plt.ylabel('loss')
-        plt.xlabel('epoch')
-        plt.legend(['train', 'test'], loc='upper left')
-        plt.savefig(str(Path(folder_name_logging, "shunt_model_training_loss.png")))
-        plt.clf()
 
     print('Test shunt model')
     val_loss_shunt, val_acc_shunt = model_shunt.evaluate(fm1_test, fm2_test, verbose=1)
@@ -344,29 +304,13 @@ if __name__ == '__main__':
     if  modes['train final model']:
         print('Train final model:')
         history_final = model_final.fit(datagen.flow(x_train, y_train, batch_size=batch_size_final), steps_per_epoch=len(x_train) / batch_size_final, epochs=epochs_final, validation_data=(x_test, y_test), verbose=1)
+        save_history_plot(history_final, "final", folder_name_logging)
+
         print('Test final model')
         val_loss_finetuned, val_acc_finetuned = model_final.evaluate(x_test, y_test, verbose=1)
         print('Loss: {}'.format(val_loss_inserted))
         print('Accuracy: {}'.format(val_acc_inserted))
 
-        # summarize history for accuracy
-        plt.plot(history_final.history['accuracy'])
-        plt.plot(history_final.history['val_accuracy'])
-        plt.title('final model accuracy')
-        plt.ylabel('accuracy')
-        plt.xlabel('epoch')
-        plt.legend(['train', 'test'], loc='upper left')
-        plt.savefig(str(Path(folder_name_logging, "final_model_training_accuracy.png")))
-        plt.clf()
-        # summarize history for loss
-        plt.plot(history_final.history['loss'])
-        plt.plot(history_final.history['val_loss'])
-        plt.title('final model loss')
-        plt.ylabel('loss')
-        plt.xlabel('epoch')
-        plt.legend(['train', 'test'], loc='upper left')
-        plt.savefig(str(Path(folder_name_logging, "final_model_training_loss.png")))
-        plt.clf()
 
         if save_models:
             model_final.save_weights(str(Path(folder_name_logging, "final_model_weights.h5")))

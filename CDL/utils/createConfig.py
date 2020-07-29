@@ -11,6 +11,7 @@ if __name__ == '__main__':
                          'save models': True,
                          'calc knowledge quotient': False,
                          'train original model': False,
+                         'train shunt model': False,
                          'train final model': False}
 
     # DATASET
@@ -45,6 +46,10 @@ if __name__ == '__main__':
                        'arch': 1,
                        'input shape': '8,8,64',
                        'output shape': '8,8,96',
+                       'from file': False,
+                       'filepath': "C:/Users/bha/Documents/CDL/Tensorflow_2.2/python_code/mobilenet_v2-like5__2018-08-26-16-42-57_weights.h5",
+                       'pretrained': False,
+                       'weightspath': "C:/Users/bha/Documents/CDL/Tensorflow_2.2/python_code/mobilenet_v2-like5__2018-08-26-16-42-57_weights.h5",
                        'load featuremaps': True,
                        'featuremapspath': "C:/Users/bha/Documents/CDL/Tensorflow_2.2/python_code/saved/feature_maps/pretrained_CIFAR/",
                        'save featuremaps': True}
