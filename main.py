@@ -251,14 +251,14 @@ if __name__ == '__main__':
     batch_size_shunt = int(training_shunt_model['batchsize'])
     learning_rate_shunt = float(training_shunt_model['learning rate'])
 
-    model_shunt.compile(loss=keras.losses.mean_squared_error, optimizer=keras.optimizers.Adam(learning_rate=learning_rate_shunt, decay=learning_rate_shunt/epochs_shunt), metrics=['accuracy'])
+    model_shunt.compile(loss=keras.losses.mean_squared_error, optimizer=keras.optimizers.Adam(learning_rate=learning_rate_shunt, decay=0.0), metrics=['accuracy'])
+
+    callback_checkpoint = keras.callbacks.ModelCheckpoint(str(Path(folder_name_logging, "shunt_model_weights.h5")), save_best_only=True, save_weights_only=True)
 
     if modes['train shunt model']:
         print('Train shunt model:')
-        history_shunt = model_shunt.fit(x=fm1_train, y=fm2_train, batch_size=batch_size_shunt, epochs=epochs_shunt, validation_data=(fm1_test, fm2_test), verbose=1, callbacks=[callback])
+        history_shunt = model_shunt.fit(x=fm1_train, y=fm2_train, batch_size=batch_size_shunt, epochs=epochs_shunt, validation_data=(fm1_test, fm2_test), verbose=1, callbacks=[callback, callback_checkpoint])
         save_history_plot(history_shunt, "shunt", folder_name_logging)
-        model_shunt.save_weights(str(Path(folder_name_logging, "shunt_model_weights.h5")))
-
 
     print('Test shunt model')
     val_loss_shunt, val_acc_shunt = model_shunt.evaluate(fm1_test, fm2_test, verbose=1)
