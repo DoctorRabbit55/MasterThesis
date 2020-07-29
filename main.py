@@ -181,7 +181,7 @@ if __name__ == '__main__':
     print('Accuracy: {}'.format(val_acc_original))
 
     if modes['calc knowledge quotient']:
-        know_quot = model_extended.getKnowledgeQuotients(data=(x_test, y_test), val_acc_original)
+        know_quot = model_extended.getKnowledgeQuotients(data=(x_test, y_test), val_acc_model=val_acc_original)
         logging.info('')
         logging.info('################# RESULT ###################')
         logging.info('')
