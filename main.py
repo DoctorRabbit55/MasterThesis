@@ -301,9 +301,11 @@ if __name__ == '__main__':
     print('Loss: {}'.format(val_loss_inserted))
     print('Accuracy: {}'.format(val_acc_inserted))
 
+    callback_checkpoint = keras.callbacks.ModelCheckpoint(str(Path(folder_name_logging, "final_model_weights.h5")), save_best_only=True, save_weights_only=True)
+
     if  modes['train final model']:
         print('Train final model:')
-        history_final = model_final.fit(datagen.flow(x_train, y_train, batch_size=batch_size_final), steps_per_epoch=len(x_train) / batch_size_final, epochs=epochs_final, validation_data=(x_test, y_test), verbose=1)
+        history_final = model_final.fit(datagen.flow(x_train, y_train, batch_size=batch_size_final), steps_per_epoch=len(x_train) / batch_size_final, epochs=epochs_final, validation_data=(x_test, y_test), verbose=1, callbacks=[callback_checkpoint])
         save_history_plot(history_final, "final", folder_name_logging)
 
         print('Test final model')
