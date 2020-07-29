@@ -269,8 +269,8 @@ if __name__ == '__main__':
 
     fm1_test = fm1_train = fm2_test = fm2_train = None
 
-    #model_final = model_extended.insertShunt(model_shunt, range(loc1, loc2+1))
-    model_final = modify_model(model_extended, layer_indexes_to_delete=range(59, 112), shunt_to_insert=model_shunt)
+    model_final = model_extended.insertShunt(model_shunt, range(loc1, loc2+1))
+    #model_final = modify_model(model_extended, layer_indexes_to_delete=range(59, 112), shunt_to_insert=model_shunt)
     print(model_final.summary())
     input('')
 
