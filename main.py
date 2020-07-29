@@ -308,7 +308,7 @@ if __name__ == '__main__':
     callback_checkpoint = keras.callbacks.ModelCheckpoint(str(Path(folder_name_logging, "final_model_weights.h5")), save_best_only=True, save_weights_only=True)
 
     if final_model_params['pretrained']:
-        model_final.load_weights(final_model_params('weightspath')
+        model_final.load_weights(final_model_params('weightspath'))
         print('Weights for final model loaded successfully!')
 
 
