@@ -70,7 +70,7 @@ if __name__ == '__main__':
     shunt_params['from_file'] = config['SHUNT'].getboolean('from file')
     shunt_params['filepath'] = config['SHUNT']['filepath']
     shunt_params['pretrained'] = config['SHUNT'].getboolean('pretrained')
-    shunt_params['weigthspath'] = config['SHUNT']['weightspath']
+    shunt_params['weightspath'] = config['SHUNT']['weightspath']
     shunt_params['load featuremaps'] = config['SHUNT'].getboolean('load featuremaps')
     if shunt_params['load featuremaps']: shunt_params['featuremapspath'] = config['SHUNT']['featuremapspath']
     shunt_params['save featuremaps'] = config['SHUNT'].getboolean('save featuremaps')
