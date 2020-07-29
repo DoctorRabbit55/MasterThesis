@@ -59,7 +59,7 @@ def createShunt(input_shape, output_shape, arch=1):
     if arch == 1:
         model_shunt = createArch1(input_shape, output_shape)
     if arch == 4:
-        model_shunt = createArch6(input_shape, output_shape)
+        model_shunt = createArch4(input_shape, output_shape)
 
     return model_shunt
 
