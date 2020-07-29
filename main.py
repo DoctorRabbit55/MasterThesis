@@ -250,7 +250,7 @@ if __name__ == '__main__':
     batch_size_shunt = int(training_shunt_model['batchsize'])
     learning_rate_shunt = float(training_shunt_model['learning rate'])
 
-    model_shunt.compile(loss=keras.losses.mean_squared_error, optimizer=keras.optimizers.Adam(learning_rate=learning_rate_shunt, decay=learning_rate_shunt/epochs_shunt), metrics=['accuracy'])
+    model_shunt.compile(loss=keras.losses.MeanSquaredLogarithmicError(), optimizer=keras.optimizers.Adam(learning_rate=learning_rate_shunt, decay=learning_rate_shunt/epochs_shunt), metrics=['accuracy'])
 
     if modes['train shunt model']:
         print('Train shunt model:')
@@ -308,7 +308,7 @@ if __name__ == '__main__':
     callback_checkpoint = keras.callbacks.ModelCheckpoint(str(Path(folder_name_logging, "final_model_weights.h5")), save_best_only=True, save_weights_only=True)
 
     if final_model_params['pretrained']:
-        model_final.load_weights(final_model_params('weightspath'))
+        model_final.load_weights(final_model_params['weightspath'])
         print('Weights for final model loaded successfully!')
 
 
