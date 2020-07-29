@@ -75,6 +75,10 @@ if __name__ == '__main__':
     if shunt_params['load featuremaps']: shunt_params['featuremapspath'] = config['SHUNT']['featuremapspath']
     shunt_params['save featuremaps'] = config['SHUNT'].getboolean('save featuremaps')
 
+    final_model_params = {}
+    final_model_params['pretrained'] = config['FINAL_MODEL'].getboolean('pretrained')
+    final_model_params['weightspath'] = config['FINAL_MODEL']['weightspath']
+
     # init logging
     folder_name_logging = Path(sys.path[0], "log", time.strftime("%Y%m%d"), time.strftime("%H_%M_%S"))
     Path(folder_name_logging).mkdir(parents=True, exist_ok=True)
@@ -302,6 +306,11 @@ if __name__ == '__main__':
     print('Accuracy: {}'.format(val_acc_inserted))
 
     callback_checkpoint = keras.callbacks.ModelCheckpoint(str(Path(folder_name_logging, "final_model_weights.h5")), save_best_only=True, save_weights_only=True)
+
+    if final_model_params['pretrained']:
+        model_final.load_weights(final_model_params('weightspath')
+        print('Weights for final model loaded successfully!')
+
 
     if  modes['train final model']:
         print('Train final model:')

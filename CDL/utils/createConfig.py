@@ -55,5 +55,9 @@ if __name__ == '__main__':
                        'save featuremaps': True}
 
 
+    # FINAL MODEL
+    config['FINAL_MODEL'] = {'pretrained': False,
+                             'weightspath': "C:/Users/bha/Documents/CDL/Tensorflow_2.2/python_code/mobilenet_v2-like5__2018-08-26-16-42-57_weights.h5"}
+
     with open('main.cfg', 'w') as configfile:
         config.write(configfile)
