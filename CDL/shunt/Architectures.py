@@ -2,6 +2,13 @@ from keras.layers import Input, Conv2D, DepthwiseConv2D, BatchNormalization, ReL
 from keras import Model
 from keras import regularizers
 
+def createArch0(input_shape, output_shape):
+
+    input_net = Input(shape=input_shape)
+    x = input_net
+    model = Model(inputs=input_net, outputs=x, name='shunt')
+
+    return model
 
 def createArch1(input_shape, output_shape):
 
@@ -49,10 +56,12 @@ def createArch4(input_shape, output_shape):
 
 def createShunt(input_shape, output_shape, arch=1):
 
-    assert(arch > 0 and arch < 10)
+    assert(arch > -1 and arch < 10)
 
     model_shunt = None
 
+    if arch == 0:
+        model_shunt = createArch0(input_shape, output_shape)
     if arch == 1:
         model_shunt = createArch1(input_shape, output_shape)
     if arch == 4:
