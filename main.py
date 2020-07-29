@@ -11,6 +11,7 @@ from CDL.models.MobileNet_v2 import MobileNetV2_extended
 from CDL.shunt import Architectures
 from CDL.utils.calculateFLOPS import calculateFLOPs_model, calculateFLOPs_blocks
 from CDL.utils.dataset_utils import *
+from CDL.utils.get_knowledge_quotients import get_knowledge_quotients
 from CDL.utils.generic_utils import *
 
 import tensorflow as tf
@@ -33,8 +34,8 @@ if __name__ == '__main__':
     # READ CONFIG
 
     config = configparser.ConfigParser()
-    #config.read(Path(sys.path[0], "config", "main.cfg"))
-    config.read(Path(sys.path[0], "main.cfg"))
+    config.read(Path(sys.path[0], "config", "main.cfg"))
+    #config.read(Path(sys.path[0], "main.cfg"))
 
     modes = {}
     modes['calc knowledge quotient'] = config['GENERAL'].getboolean('calc knowledge quotient')
@@ -176,12 +177,12 @@ if __name__ == '__main__':
 
     # test original model
     print('Test original model')
-    val_loss_original, val_acc_original = model_extended.evaluate(x_test, y_test, verbose=1)
+    val_loss_original, val_acc_original = model_extended.evaluate(x_test[:1000], y_test[:1000], verbose=1)
     print('Loss: {}'.format(val_loss_original))
     print('Accuracy: {}'.format(val_acc_original))
 
     if modes['calc knowledge quotient']:
-        know_quot = model_extended.getKnowledgeQuotients(data=(x_test, y_test), val_acc_model=val_acc_original)
+        know_quot = get_knowledge_quotients(model=model_extended, data=(x_test, y_test), val_acc_model=val_acc_original)
         logging.info('')
         logging.info('################# RESULT ###################')
         logging.info('')
@@ -262,8 +263,10 @@ if __name__ == '__main__':
 
     print('Test shunt model')
     val_loss_shunt, val_acc_shunt = model_shunt.evaluate(fm1_test, fm2_test, verbose=1)
-    print('Loss: {}'.format(val_loss_shunt))
-    print('Accuracy: {}'.format(val_acc_shunt))
+    print('Loss: {:.5f}'.format(val_loss_shunt))
+    print('Accuracy: {:.5f}'.format(val_acc_shunt))
+
+    fm1_test = fm1_train = fm2_test = fm2_train = None
 
     model_final = model_extended.insertShunt(model_shunt, range(loc1, loc2+1))
 
