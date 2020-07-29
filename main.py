@@ -132,8 +132,6 @@ if __name__ == '__main__':
             else:
                 model_extended = MobileNetV2_extended.create(is_pretrained=False, num_classes=num_classes, input_shape=input_shape, mobilenet_shape=(32,32,3))
 
-        if pretrained:
-            model_extended.load_weights(weights_file_path)
 
     if 'MobileNetV3' in model_type:
 
@@ -152,9 +150,9 @@ if __name__ == '__main__':
             else:
                 model_extended = MobileNetV3_extended.create(is_pretrained=False, num_classes=num_classes, is_small=is_small, input_shape=input_shape, mobilenet_shape=(32,32,3))
 
-        if pretrained:
-            model_extended.load_weights(weights_file_path)
-            print('Weights loaded successfully!')
+    if pretrained:
+        model_extended.load_weights(weights_file_path)
+        print('Weights loaded successfully!')
 
     epochs_original = int(training_original_model['epochs'])
     batch_size_original = int(training_original_model['batchsize'])
@@ -175,7 +173,7 @@ if __name__ == '__main__':
 
     # train model if weights are not loaded
 
-    callback = tf.keras.callbacks.EarlyStopping(monitor='loss', patience=3, verbose=1, restore_best_weights=True)
+    callback = tf.keras.callbacks.EarlyStopping(monitor='loss', patience=5, verbose=1, restore_best_weights=True)
 
     if modes['train original model']:
         print('Train original model:')
@@ -218,7 +216,6 @@ if __name__ == '__main__':
         logging.info('')
         logging.info(know_quot)
 
-        exit()
 
     loc1 = shunt_params['locations'][0]
     loc2 = shunt_params['locations'][1]
@@ -277,7 +274,7 @@ if __name__ == '__main__':
     
     if modes['train shunt model']:
         print('Train shunt model:')
-        history_shunt = model_shunt.fit(x=fm1_train, y=fm2_train, batch_size=batch_size_shunt, epochs=epochs_shunt, validation_data=(fm1_test, fm2_test), verbose=1)
+        history_shunt = model_shunt.fit(x=fm1_train, y=fm2_train, batch_size=batch_size_shunt, epochs=epochs_shunt, validation_data=(fm1_test, fm2_test), verbose=1, callbacks=[callback])
 
         # summarize history for accuracy
         plt.plot(history_shunt.history['accuracy'])
