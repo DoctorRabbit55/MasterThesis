@@ -35,8 +35,8 @@ if __name__ == '__main__':
     # READ CONFIG
 
     config = configparser.ConfigParser()
-    config.read(Path(sys.path[0], "config", "main.cfg"))
-    #config.read(Path(sys.path[0], "main.cfg"))
+    #config.read(Path(sys.path[0], "config", "main.cfg"))
+    config.read(Path(sys.path[0], "main.cfg"))
 
     modes = {}
     modes['calc knowledge quotient'] = config['GENERAL'].getboolean('calc knowledge quotient')
@@ -271,8 +271,6 @@ if __name__ == '__main__':
 
     model_final = model_extended.insertShunt(model_shunt, range(loc1, loc2+1))
     #model_final = modify_model(model_extended, layer_indexes_to_delete=range(59, 112), shunt_to_insert=model_shunt)
-    print(model_final.summary())
-    input('')
 
     if save_models:
         keras.models.save_model(model_final, Path(folder_name_logging, "final_model.h5"))
