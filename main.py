@@ -180,7 +180,7 @@ if __name__ == '__main__':
     print('Accuracy: {}'.format(val_acc_original))
 
     if modes['calc knowledge quotient']:
-        know_quot = model_extended.getKnowledgeQuotients(data=(x_test, y_test))
+        know_quot = model_extended.getKnowledgeQuotients(data=(x_test, y_test), val_acc_original)
         logging.info('')
         logging.info('################# RESULT ###################')
         logging.info('')
@@ -250,7 +250,7 @@ if __name__ == '__main__':
     batch_size_shunt = int(training_shunt_model['batchsize'])
     learning_rate_shunt = float(training_shunt_model['learning rate'])
 
-    model_shunt.compile(loss=keras.losses.MeanSquaredLogarithmicError(), optimizer=keras.optimizers.Adam(learning_rate=learning_rate_shunt, decay=learning_rate_shunt/epochs_shunt), metrics=['accuracy'])
+    model_shunt.compile(loss=keras.losses.mean_squared_error, optimizer=keras.optimizers.Adam(learning_rate=learning_rate_shunt, decay=learning_rate_shunt/epochs_shunt), metrics=['accuracy'])
 
     if modes['train shunt model']:
         print('Train shunt model:')
