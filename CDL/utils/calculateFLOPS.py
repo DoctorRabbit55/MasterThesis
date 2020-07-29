@@ -51,7 +51,7 @@ def calculateFLOPs_blocks(model, block_to_measure_indexes):
 def calculateFLOPs_layer(layer, flops_dic):
     
     config = layer.get_config()
-
+    flops_layer = 0
     if layer.__class__ is Conv2D:
 
         filters_input = layer.input_shape[3]

@@ -44,11 +44,16 @@ def identify_residual_layer_indexes(model):
         
     return add_incoming_index_dic, mult_incoming_index_dic
 
-def delete_layers(model, layer_indexes_to_delete):
+def modify_model(model, layer_indexes_to_delete=[], layer_indexes_to_output=[], shunt_to_insert=None):
 
     add_input_index_dic, mult_input_index_dic = identify_residual_layer_indexes(model)
     add_input_tensors = {}
     mult_input_tensors = {}
+
+    outputs = []
+    
+    got_shunt_inserted = False
+    shunt_output = None
 
     input_net = Input(model.input_shape[1:])
     x = input_net  
@@ -60,7 +65,10 @@ def delete_layers(model, layer_indexes_to_delete):
 
         for add_index, input_index in add_input_index_dic.items():
             if layer_index_to_delete == input_index:
-                add_input_index_dic[add_index] = input_index-1
+                if not shunt_to_insert:
+                    add_input_index_dic[add_index] = input_index-1
+                else:
+                    add_input_index_dic[add_index] = -1 # use shunt output
         for mult_index, input_index in mult_input_index_dic.items():
             if layer_index_to_delete == input_index:
                 mult_input_index_dic[mult_index] = input_index-1
@@ -86,6 +94,11 @@ def delete_layers(model, layer_indexes_to_delete):
                 break
 
         if should_delete:
+            if shunt_to_insert and not got_shunt_inserted:
+                for shunt_layer in shunt_to_insert.layers:
+                    x = shunt_layer(x)
+                    shunt_output = x
+                got_shunt_inserted = True
             continue
 
         if isinstance(next_layer, Multiply):
@@ -93,7 +106,10 @@ def delete_layers(model, layer_indexes_to_delete):
             x = next_layer([x, mult_input_tensors[second_input_index]])
         elif isinstance(next_layer, Add):
             second_input_index = add_input_index_dic[i]
-            x = next_layer([x, add_input_tensors[second_input_index]])
+            if second_input_index == -1: # use shunt
+                x = next_layer([x, shunt_output])
+            else:
+                x = next_layer([x, add_input_tensors[second_input_index]])
         else:
             x = next_layer(x)
 
@@ -102,15 +118,35 @@ def delete_layers(model, layer_indexes_to_delete):
         if i in mult_input_index_dic.values():
             mult_input_tensors[i] = x
 
-    model_reduced = keras.models.Model(inputs=input_net, outputs=x, name=model.name)
+        if i in layer_indexes_to_output:
+            outputs.append(x)
+
+    outputs.append(x)
+    assert(len(outputs) == len(layer_indexes_to_output)+1)
+    model_reduced = keras.models.Model(inputs=input_net, outputs=outputs, name=model.name)
 
     for j in range(1,len(model_reduced.layers)):
+
+        # skip shunt
+        if shunt_to_insert:
+            if j in range(layer_indexes_to_delete[0]+len(shunt_to_insert.layers)):
+                continue
+
         layer = model_reduced.layers[j]
         weights = model.get_layer(name=layer.name).get_weights()
         if len(weights) > 0:
             model_reduced.layers[j].set_weights(weights)
 
     return model_reduced
+
+def extract_feature_maps(model, x_data, locations):
+
+    model = modify_model(model, layer_indexes_to_output=locations)
+
+    predictions = model.predict(x_data, verbose=1)
+
+    return predictions[:-1]
+
 
 class TestIdentifyResidualLayerIndexesMethod(unittest.TestCase):
 
@@ -137,7 +173,7 @@ class TestIdentifyResidualLayerIndexesMethod(unittest.TestCase):
 
 if __name__ == '__main__':
 
-    model = MobileNetV3Small(weights='imagenet', include_top=True, input_shape=(224,224,3), backend=keras.backend, layers=keras.layers, models=keras.models, utils=keras.utils)
+    model = MobileNetV2(weights='imagenet', include_top=True, input_shape=(224,224,3))
     
     for i in range(len(model.layers)):
         print(i)

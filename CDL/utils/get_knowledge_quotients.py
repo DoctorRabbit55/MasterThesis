@@ -13,7 +13,7 @@ def get_knowledge_quotients(model, data, val_acc_model):
 
         start_layer_index = add_input_dic[add_layer_index] + 1
 
-        model_reduced = delete_layers(model, range(start_layer_index, add_layer_index+1))
+        model_reduced = modify_model(model, range(start_layer_index, add_layer_index+1))
 
         model_reduced.compile(loss='categorical_crossentropy', optimizer=SGD(lr=2e-2, momentum=0.9, decay=0.0, nesterov=False), metrics=['accuracy'])
 

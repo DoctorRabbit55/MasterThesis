@@ -13,6 +13,7 @@ from CDL.utils.calculateFLOPS import calculateFLOPs_model, calculateFLOPs_blocks
 from CDL.utils.dataset_utils import *
 from CDL.utils.get_knowledge_quotients import get_knowledge_quotients
 from CDL.utils.generic_utils import *
+from CDL.utils.keras_utils import extract_feature_maps, modify_model
 
 import tensorflow as tf
 from keras.datasets import cifar10
@@ -159,7 +160,7 @@ if __name__ == '__main__':
     logging.info('#######################################################################################################')
     logging.info('')
     model_extended.summary(print_fn=logger.info, line_length=150)
-    print('{} sucessfully created!'.format(model_type))
+    print('{} successfully created!'.format(model_type))
 
     flops_original = calculateFLOPs_model(model_extended)
 
@@ -182,7 +183,7 @@ if __name__ == '__main__':
     print('Accuracy: {}'.format(val_acc_original))
 
     if modes['calc knowledge quotient']:
-        know_quot = get_knowledge_quotients(model=model_extended, data=(x_test, y_test), val_acc_model=val_acc_original)
+        know_quot = get_knowledge_quotients(model=model_extended, data=(x_test[:1000], y_test[:1000]), val_acc_model=val_acc_original)
         logging.info('')
         logging.info('################# RESULT ###################')
         logging.info('')
@@ -209,8 +210,8 @@ if __name__ == '__main__':
     else:
         
         print('Feature maps extracting started:')
-        (fm1_train, fm2_train)  = model_extended.getFeatureMaps((loc1,loc2), x_train)
-        (fm1_test, fm2_test) = model_extended.getFeatureMaps((loc1,loc2), x_test)
+        (fm1_train, fm2_train)  = extract_feature_maps(model_extended, x_train[:32], [59, 112])
+        (fm1_test, fm2_test) = extract_feature_maps(model_extended, x_test[:32], [59, 112])
 
         if shunt_params['save featuremaps']:
             np.save(Path(folder_name_logging, "fm1_train_{}_{}".format(loc1, loc2)), fm1_train)
@@ -254,7 +255,7 @@ if __name__ == '__main__':
 
     model_shunt.compile(loss=keras.losses.mean_squared_error, optimizer=keras.optimizers.Adam(learning_rate=learning_rate_shunt, decay=0.0), metrics=['accuracy'])
 
-    callback_checkpoint = keras.callbacks.ModelCheckpoint(str(Path(folder_name_logging, "shunt_model_weights.h5")), save_best_only=True, save_weights_only=True)
+    callback_checkpoint = keras.callbacks.ModelCheckpoint(str(Path(folder_name_logging, "shunt_model_weights.h5")), save_best_only=False, save_weights_only=True)
 
     if modes['train shunt model']:
         print('Train shunt model:')
@@ -268,7 +269,10 @@ if __name__ == '__main__':
 
     fm1_test = fm1_train = fm2_test = fm2_train = None
 
-    model_final = model_extended.insertShunt(model_shunt, range(loc1, loc2+1))
+    #model_final = model_extended.insertShunt(model_shunt, range(loc1, loc2+1))
+    model_final = modify_model(model_extended, layer_indexes_to_delete=range(59, 112), shunt_to_insert=model_shunt)
+    print(model_final.summary())
+    input('')
 
     if save_models:
         keras.models.save_model(model_final, Path(folder_name_logging, "final_model.h5"))
@@ -309,7 +313,7 @@ if __name__ == '__main__':
     print('Loss: {}'.format(val_loss_inserted))
     print('Accuracy: {}'.format(val_acc_inserted))
 
-    callback_checkpoint = keras.callbacks.ModelCheckpoint(str(Path(folder_name_logging, "final_model_weights.h5")), save_best_only=True, save_weights_only=True)
+    callback_checkpoint = keras.callbacks.ModelCheckpoint(str(Path(folder_name_logging, "final_model_weights.h5")), save_best_only=False, save_weights_only=True)
 
     if final_model_params['pretrained']:
         model_final.load_weights(final_model_params['weightspath'])
