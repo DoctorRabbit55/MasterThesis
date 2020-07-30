@@ -319,6 +319,10 @@ if __name__ == '__main__':
     if final_model_params['pretrained']:
         model_final.load_weights(final_model_params['weightspath'])
         print('Weights for final model loaded successfully!')
+        print('Test shunt inserted model')
+        val_loss_inserted, val_acc_inserted = model_final.evaluate(x_test, y_test, verbose=1)
+        print('Loss: {}'.format(val_loss_inserted))
+        print('Accuracy: {}'.format(val_acc_inserted))
 
 
     if  modes['train final model']:
