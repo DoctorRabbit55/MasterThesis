@@ -122,7 +122,7 @@ class MobileNetV2_extended(Model):
 
             return MobileNetV2_extended(inputs=input_net, outputs=x)
 
-    def getKnowledgeQuotients(self, data):
+    def getKnowledgeQuotients(self, data, val_acc_model):
 
         (x_test, y_test) = data
 
@@ -140,7 +140,7 @@ class MobileNetV2_extended(Model):
             print('Test loss for block {}: {:.5f}'.format(block_index, val_loss))
             print('Test accuracy for block {}: {:.5f}'.format(block_index, val_acc))
 
-            know_quot[block_index] = val_acc
+            know_quot[block_index] = val_acc / val_acc_model
 
         return know_quot
 
@@ -208,7 +208,7 @@ class MobileNetV2_extended(Model):
             weights = self.get_layer(name=layer.name).get_weights()
             if len(weights) > 0:
                 model_loc2.layers[j].set_weights(weights)
-
+        '''
         datagen = ImageDataGenerator(
             featurewise_center=False, 
             featurewise_std_normalization=False, 
@@ -238,6 +238,9 @@ class MobileNetV2_extended(Model):
             print('Extract feature maps: {} maps done of {}'.format(fm1.shape[0], number_maps), end='\r')
             if(fm1.shape[0] > number_maps):
                 break
+        '''
+        fm1 = model_loc1.predict(x_train)
+        fm2 = model_loc2.predict(x_train)
 
         return (fm1, fm2)
 
@@ -292,7 +295,7 @@ class MobileNetV2_extended(Model):
                 weights = shunt.get_weights()
             else:
                 weights = self.get_layer(name=layer.name).get_weights()
-                finished_model.layers[j].trainable = False
+                #finished_model.layers[j].trainable = False
             if len(weights) > 0:
                 finished_model.layers[j].set_weights(weights)
 
