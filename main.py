@@ -300,7 +300,7 @@ if __name__ == '__main__':
     epochs_final = int(training_final_model['epochs'])
     batch_size_final = int(training_final_model['batchsize'])
     learning_rate_final = float(training_final_model['learning rate'])
-    model_final.compile(loss='categorical_crossentropy', optimizer=keras.optimizers.SGD(lr=learning_rate_final, momentum=0.9, decay=learning_rate_final/epochs_final, nesterov=False), metrics=['accuracy'])
+    model_final.compile(loss='categorical_crossentropy', optimizer=keras.optimizers.SGD(lr=learning_rate_final, momentum=0.9, decay=0.0, nesterov=False), metrics=['accuracy'])
     
     logging.info('')
     logging.info('#######################################################################################################')
