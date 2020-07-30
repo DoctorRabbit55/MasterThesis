@@ -213,8 +213,8 @@ if __name__ == '__main__':
         #(fm1_train, fm2_train)  = extract_feature_maps(model_extended, x_train, [59, 112])
         #(fm1_test, fm2_test) = extract_feature_maps(model_extended, x_test, [59, 112])
 
-        (fm1_train, fm2_train) = model_extended.extract_feature_maps((loc1,loc2), x_train)
-        (fm1_test, fm2_test) = model_extended.extract_feature_maps((loc1,loc2), x_test)
+        (fm1_train, fm2_train) = model_extended.getFeatureMaps((loc1,loc2), x_train)
+        (fm1_test, fm2_test) = model_extended.getFeatureMaps((loc1,loc2), x_test)
 
         if shunt_params['save featuremaps']:
             np.save(Path(folder_name_logging, "fm1_train_{}_{}".format(loc1, loc2)), fm1_train)
