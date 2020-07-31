@@ -256,7 +256,7 @@ if __name__ == '__main__':
     batch_size_shunt = int(training_shunt_model['batchsize'])
     learning_rate_shunt = float(training_shunt_model['learning rate'])
 
-    model_shunt.compile(loss=keras.losses.mean_squared_error, optimizer=keras.optimizers.SGD(learning_rate=learning_rate_shunt, decay=0.0, momentum=0.9), metrics=['accuracy'])
+    model_shunt.compile(loss=keras.losses.mean_squared_error, optimizer=keras.optimizers.SGD(learning_rate=learning_rate_shunt, decay=learning_rate_shunt/epochs_shunt, momentum=0.9), metrics=['accuracy'])
 
     callback_checkpoint = keras.callbacks.ModelCheckpoint(str(Path(folder_name_logging, "shunt_model_weights.h5")), save_best_only=False, save_weights_only=True)
 
