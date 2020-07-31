@@ -318,7 +318,7 @@ if __name__ == '__main__':
     print('Accuracy: {}'.format(val_acc_inserted))
 
     callback_checkpoint = keras.callbacks.ModelCheckpoint(str(Path(folder_name_logging, "final_model_weights.h5")), save_best_only=False, save_weights_only=True)
-    callback_unfreeze = UnfreezeLayersCallback(epochs=epochs_final, num_layers=len(model_final.layers))
+    callback_unfreeze = UnfreezeLayersCallback(epochs=epochs_final, num_layers=len(model_final.layers), learning_rate=learning_rate_final)
 
     if final_model_params['pretrained']:
         model_final.load_weights(final_model_params['weightspath'])
