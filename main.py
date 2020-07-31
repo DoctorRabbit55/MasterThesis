@@ -14,6 +14,7 @@ from CDL.utils.dataset_utils import *
 from CDL.utils.get_knowledge_quotients import get_knowledge_quotients
 from CDL.utils.generic_utils import *
 from CDL.utils.keras_utils import extract_feature_maps, modify_model
+from CDL.utils.custom_callbacks import UnfreezeLayersCallback
 
 import tensorflow as tf
 from keras.datasets import cifar10
@@ -274,7 +275,9 @@ if __name__ == '__main__':
 
     model_final = model_extended.insertShunt(model_shunt, range(loc1, loc2+1))
     #model_final = modify_model(model_extended, layer_indexes_to_delete=range(59, 112), shunt_to_insert=model_shunt)
-
+    for layer in model_final.layers:
+        layer.trainable = False
+    
     if save_models:
         keras.models.save_model(model_final, Path(folder_name_logging, "final_model.h5"))
         logging.info('')
@@ -315,6 +318,7 @@ if __name__ == '__main__':
     print('Accuracy: {}'.format(val_acc_inserted))
 
     callback_checkpoint = keras.callbacks.ModelCheckpoint(str(Path(folder_name_logging, "final_model_weights.h5")), save_best_only=False, save_weights_only=True)
+    callback_unfreeze = UnfreezeLayersCallback(epochs=epochs_final, num_layers=len(model_final.layers))
 
     if final_model_params['pretrained']:
         model_final.load_weights(final_model_params['weightspath'])
@@ -327,7 +331,7 @@ if __name__ == '__main__':
 
     if  modes['train final model']:
         print('Train final model:')
-        history_final = model_final.fit(datagen.flow(x_train, y_train, batch_size=batch_size_final), steps_per_epoch=len(x_train) / batch_size_final, epochs=epochs_final, validation_data=(x_test, y_test), verbose=1, callbacks=[callback_checkpoint])
+        history_final = model_final.fit(datagen.flow(x_train, y_train, batch_size=batch_size_final), steps_per_epoch=len(x_train) / batch_size_final, epochs=epochs_final, validation_data=(x_test, y_test), verbose=1, callbacks=[callback_checkpoint, callback_unfreeze])
         save_history_plot(history_final, "final", folder_name_logging)
 
         print('Test final model')
