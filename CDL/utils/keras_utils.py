@@ -95,7 +95,7 @@ def modify_model(model, layer_indexes_to_delete=[], layer_indexes_to_output=[], 
 
         if should_delete:
             if shunt_to_insert and not got_shunt_inserted:
-                for shunt_layer in shunt_to_insert.layers:
+                for shunt_layer in shunt_to_insert.layers[1:]:
                     x = shunt_layer(x)
                     shunt_output = x
                 got_shunt_inserted = True
@@ -129,7 +129,7 @@ def modify_model(model, layer_indexes_to_delete=[], layer_indexes_to_output=[], 
 
         # skip shunt
         if shunt_to_insert:
-            if j in range(layer_indexes_to_delete[0]+len(shunt_to_insert.layers)):
+            if j in range(layer_indexes_to_delete[0]+len(shunt_to_insert.layers)-1):
                 continue
 
         layer = model_reduced.layers[j]

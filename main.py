@@ -7,7 +7,7 @@ from pathlib import Path
 import numpy as np
 
 from CDL.models.MobileNet_v2 import MobileNetV2_extended
-#from CDL.models.MobileNet_v3 import MobileNetV3_extended
+from CDL.models.MobileNet_v3 import MobileNetV3_extended
 from CDL.shunt import Architectures
 from CDL.utils.calculateFLOPS import calculateFLOPs_model, calculateFLOPs_blocks
 from CDL.utils.dataset_utils import *
@@ -149,6 +149,8 @@ if __name__ == '__main__':
         model_extended.load_weights(weights_file_path)
         print('Weights loaded successfully!')
 
+    print(model_extended.summary())
+
     epochs_original = int(training_original_model['epochs'])
     batch_size_original = int(training_original_model['batchsize'])
     learning_rate_original = float(training_original_model['learning rate'])
@@ -275,8 +277,7 @@ if __name__ == '__main__':
 
     model_final = model_extended.insertShunt(model_shunt, range(loc1, loc2+1))
     #model_final = modify_model(model_extended, layer_indexes_to_delete=range(59, 112), shunt_to_insert=model_shunt)
-    for layer in model_final.layers:
-        layer.trainable = False
+    model_final.trainable = False
     
     if save_models:
         keras.models.save_model(model_final, Path(folder_name_logging, "final_model.h5"))

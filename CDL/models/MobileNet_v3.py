@@ -118,9 +118,10 @@ class MobileNetV3_extended(Model):
                 x = Reshape((1,1,576))(x)
             else:
                 x = Reshape((1,1,960))(x)
-            x = Conv2D(10, kernel_size=1, padding='same')(x)
-            x = Activation(hard_swish)(x)
+            x = Conv2D(1024, kernel_size=1, padding='same')(x)
+            layer = Activation(hard_swish)
             x = Dropout(rate=0.2)(x)
+            x = Conv2D(num_classes, kernel_size=1, padding='same')(x)
             x = Flatten()(x)
             x = Softmax()(x)
 
@@ -145,15 +146,26 @@ class MobileNetV3_extended(Model):
             else:
                 x = input_net
             
+            # CIFAR10 changes
+            number_layers_stride_changed = 0
+
             # add first 4 layers which are not part of blocks
             for layer in mobilenet.layers[1:5]:
                 config = layer.get_config()
+                if 'strides' in config and number_layers_stride_changed > 0:
+                    if config['strides'] == (2,2):
+                        config['strides'] = (1,1)
+                        number_layers_stride_changed -= 1
                 next_layer = layer_from_config({'class_name': layer.__class__.__name__, 'config': config})
                 x = next_layer(x)
             
             for layer in mobilenet.layers[5:-6]:
 
                 config = layer.get_config()
+                if 'strides' in config and number_layers_stride_changed > 0:
+                    if config['strides'] == (2,2):
+                        config['strides'] = (1,1)
+                        number_layers_stride_changed -= 1
                 next_layer = layer_from_config({'class_name': layer.__class__.__name__, 'config': config})
 
                 # look if next block startsF
@@ -192,7 +204,7 @@ class MobileNetV3_extended(Model):
 
         return MobileNetV3_extended(inputs=input_net, outputs=x)
 
-    def getKnowledgeQuotients(self, data):
+    def getKnowledgeQuotients(self, data, val_acc_model):
 
         (x_test, y_test) = data
 
@@ -213,7 +225,7 @@ class MobileNetV3_extended(Model):
             print('Test loss for block {}: {:.5f}'.format(block_index, val_loss))
             print('Test accuracy for block {}: {:.5f}'.format(block_index, val_acc))
 
-            know_quot[block_index] = val_acc
+            know_quot[block_index] = val_acc / val_acc_model
 
         return know_quot
 
@@ -231,7 +243,7 @@ class MobileNetV3_extended(Model):
 
             block_to_delete = False
             for block_index in block_indexes:
-                block_name = 'block_' + str(block_index)
+                block_name = 'block_' + str(block_index) + '_'
                 if block_name in layer.name:
                     block_to_delete = True             
 
@@ -267,13 +279,10 @@ class MobileNetV3_extended(Model):
                         output_residual.get()
                     output_residual.put(x)
 
-
         model_reduced = Model(input_net, x)
-        print(model_reduced.summary())
 
         for j in range(1,len(model_reduced.layers)):
             layer = model_reduced.layers[j]
-            print(layer.name)
             weights = self.get_layer(name=layer.name).get_weights()
             if len(weights) > 0:
                 model_reduced.layers[j].set_weights(weights)
@@ -343,6 +352,7 @@ class MobileNetV3_extended(Model):
 
         is_shunt_inserted = False
         output_residual = queue.Queue(2)
+        multiply_input = queue.Queue(2)
 
         input_net = Input(self.input_shape[1:])
         x = input_net
@@ -351,7 +361,7 @@ class MobileNetV3_extended(Model):
             
             block_to_delete = False
             for block_index in block_to_replace_indexes:
-                block_name = 'block_' + str(block_index)
+                block_name = 'block_' + str(block_index) + '_'
                 if block_name in layer.name:
                     block_to_delete = True             
 
@@ -365,18 +375,31 @@ class MobileNetV3_extended(Model):
 
             else:
                 config = layer.get_config()
-                next_layer = layer_from_config({'class_name': layer.__class__.__name__, 'config': config})
 
-                if isinstance(layer, Add):
+                if 'activation' in config:
+                    if type(config['activation']) is not str:
+                        next_layer = Activation(hard_swish, name=layer.name)
+                    else:
+                        next_layer = layer_from_config({'class_name': layer.__class__.__name__, 'config': config})  
+                else:
+                    next_layer = layer_from_config({'class_name': layer.__class__.__name__, 'config': config})
+
+                if isinstance(layer, Multiply):
+                    x = next_layer([x, multiply_input.get()])
+                elif isinstance(layer, Add):
                     x = next_layer([x, output_residual.get()])
                 else:
                     x = next_layer(x)
                 
-                if "block_" in layer.name and "_project_BN" in layer.name:
+                if 'activation' in next_layer.name:
+                    if multiply_input.full():
+                        multiply_input.get()
+                    multiply_input.put(x)
+                if "block" in layer.name and "/project/BatchNorm" in layer.name:
                     if output_residual.full():
                         output_residual.get()
                     output_residual.put(x)
-                if "block_" in layer.name and "_add" in layer.name:
+                if "block" in layer.name and "/Add" in layer.name:
                     if output_residual.full():
                         output_residual.get()
                     output_residual.put(x)
