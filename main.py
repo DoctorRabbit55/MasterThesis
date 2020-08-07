@@ -2,6 +2,7 @@ import sys
 import configparser
 import logging
 import time
+from shutil import copyfile
 
 from pathlib import Path
 import numpy as np
@@ -34,10 +35,10 @@ if __name__ == '__main__':
     session = InteractiveSession(config=config)
 
     # READ CONFIG
-
+    config_path = Path(sys.path[0], "main.cfg")
+    #config_path = Path(sys.path[0], "config", "main.cfg")
     config = configparser.ConfigParser()
-    #config.read(Path(sys.path[0], "config", "main.cfg"))
-    config.read(Path(sys.path[0], "main.cfg"))
+    config.read(config_path)
 
     modes = {}
     modes['calc knowledge quotient'] = config['GENERAL'].getboolean('calc knowledge quotient')
@@ -95,6 +96,8 @@ if __name__ == '__main__':
     datagen = None
     input_shape = None
 
+    copyfile(config_path, Path(folder_name_logging, "config.cfg"))
+
     if dataset_name == 'CIFAR10':
 
         (x_train, y_train), (x_test, y_test) = load_and_preprocess_CIFAR10()
@@ -149,7 +152,6 @@ if __name__ == '__main__':
         model_extended.load_weights(weights_file_path)
         print('Weights loaded successfully!')
 
-    print(model_extended.summary())
 
     epochs_original = int(training_original_model['epochs'])
     batch_size_original = int(training_original_model['batchsize'])
@@ -174,25 +176,28 @@ if __name__ == '__main__':
 
     if modes['train original model']:
         print('Train original model:')
-        for epoch in range(epochs_original):
-            history_original = model_extended.fit(datagen.flow(x_train, y_train, batch_size=batch_size_original), steps_per_epoch=len(x_train) / batch_size_original, epochs=1, validation_data=(x_test, y_test), verbose=1, callbacks=[callback])
-            model_extended.save_weights(str(Path(folder_name_logging, "original_model_weights.h5")))
+        history_original = model_extended.fit(datagen.flow(x_train, y_train, batch_size=batch_size_original), steps_per_epoch=len(x_train) / batch_size_original, epochs=epochs_original, validation_data=(x_test, y_test), verbose=1, callbacks=[callback])
+        model_extended.save_weights(str(Path(folder_name_logging, "original_model_weights.h5")))
         save_history_plot(history_original, "original", folder_name_logging)
 
     # test original model
     print('Test original model')
-    val_loss_original, val_acc_original = model_extended.evaluate(x_test[:1000], y_test[:1000], verbose=1)
+    val_loss_original, val_acc_original = model_extended.evaluate(x_test, y_test, verbose=1)
     print('Loss: {}'.format(val_loss_original))
     print('Accuracy: {}'.format(val_acc_original))
 
     if modes['calc knowledge quotient']:
-        know_quot = get_knowledge_quotients(model=model_extended, data=(x_test[:1000], y_test[:1000]), val_acc_model=val_acc_original)
+        know_quot = get_knowledge_quotients(model=model_extended, data=(x_test, y_test), val_acc_model=val_acc_original)
         logging.info('')
         logging.info('################# RESULT ###################')
         logging.info('')
         logging.info('Original model: loss: {:.5f}, acc: {:.5f}'.format(val_loss_original, val_acc_original))
         logging.info('')
-        logging.info(know_quot)
+        for (residual_idx, end_idx, value) in know_quot:
+            logging.info("Block starts with: {}, location: {}".format(model_extended.get_layer(index=residual_idx+1).name, residual_idx+1))
+            logging.info("Block ends with: {}, location: {}".format(model_extended.get_layer(index=end_idx).name, end_idx))   
+            logging.info("Block knowledge quotient: {}\n".format(value)) 
+        exit()
 
 
     loc1 = shunt_params['locations'][0]
@@ -213,11 +218,8 @@ if __name__ == '__main__':
     else:
         
         print('Feature maps extracting started:')
-        #(fm1_train, fm2_train)  = extract_feature_maps(model_extended, x_train, [59, 112])
-        #(fm1_test, fm2_test) = extract_feature_maps(model_extended, x_test, [59, 112])
-
-        (fm1_train, fm2_train) = model_extended.getFeatureMaps((loc1,loc2), x_train)
-        (fm1_test, fm2_test) = model_extended.getFeatureMaps((loc1,loc2), x_test)
+        (fm1_train, fm2_train)  = extract_feature_maps(model_extended, x_train, [loc1-1, loc2])
+        (fm1_test, fm2_test) = extract_feature_maps(model_extended, x_test, [loc1-1, loc2])
 
         if shunt_params['save featuremaps']:
             np.save(Path(folder_name_logging, "fm1_train_{}_{}".format(loc1, loc2)), fm1_train)
@@ -228,8 +230,9 @@ if __name__ == '__main__':
             logging.info('')
             logging.info('Featuremaps saved to {}'.format(folder_name_logging))
     
-    
-    flops_dropped_blocks = calculateFLOPs_blocks(model_extended, range(loc1,loc2+1))
+    #TODO
+    #flops_dropped_blocks = calculateFLOPs_model(model_extended, range(loc1,loc2+1))
+    flops_dropped_blocks = 0
 
     if shunt_params['from_file']:
         model_shunt = keras.models.load_model(shunt_params['filepath'])
@@ -259,7 +262,7 @@ if __name__ == '__main__':
     batch_size_shunt = int(training_shunt_model['batchsize'])
     learning_rate_shunt = float(training_shunt_model['learning rate'])
 
-    model_shunt.compile(loss=keras.losses.mean_squared_error, optimizer=keras.optimizers.SGD(learning_rate=learning_rate_shunt, decay=learning_rate_shunt/epochs_shunt, momentum=0.9), metrics=['accuracy'])
+    model_shunt.compile(loss=keras.losses.mean_squared_error, optimizer=keras.optimizers.Adam(learning_rate=learning_rate_shunt, decay=learning_rate_shunt/epochs_shunt), metrics=[keras.metrics.MeanSquaredError(), 'accuracy'])
 
     callback_checkpoint = keras.callbacks.ModelCheckpoint(str(Path(folder_name_logging, "shunt_model_weights.h5")), save_best_only=False, save_weights_only=True)
 
@@ -269,15 +272,14 @@ if __name__ == '__main__':
         save_history_plot(history_shunt, "shunt", folder_name_logging)
 
     print('Test shunt model')
-    val_loss_shunt, val_acc_shunt = model_shunt.evaluate(fm1_test, fm2_test, verbose=1)
+    val_loss_shunt, _, val_acc_shunt, = model_shunt.evaluate(fm1_test, fm2_test, verbose=1)
     print('Loss: {:.5f}'.format(val_loss_shunt))
     print('Accuracy: {:.5f}'.format(val_acc_shunt))
 
     fm1_test = fm1_train = fm2_test = fm2_train = None
 
-    model_final = model_extended.insertShunt(model_shunt, range(loc1, loc2+1))
-    #model_final = modify_model(model_extended, layer_indexes_to_delete=range(59, 112), shunt_to_insert=model_shunt)
-    model_final.trainable = False
+    model_final = modify_model(model_extended, layer_indexes_to_delete=range(loc1, loc2+1), shunt_to_insert=model_shunt)
+    #model_final.trainable = False
     
     if save_models:
         keras.models.save_model(model_final, Path(folder_name_logging, "final_model.h5"))
@@ -304,7 +306,7 @@ if __name__ == '__main__':
     epochs_final = int(training_final_model['epochs'])
     batch_size_final = int(training_final_model['batchsize'])
     learning_rate_final = float(training_final_model['learning rate'])
-    model_final.compile(loss='categorical_crossentropy', optimizer=keras.optimizers.SGD(lr=learning_rate_final, momentum=0.9, decay=0.0, nesterov=False), metrics=['accuracy'])
+    model_final.compile(loss='categorical_crossentropy', optimizer=keras.optimizers.SGD(lr=learning_rate_final, momentum=0.9, decay=learning_rate_final/epochs_final, nesterov=False), metrics=['accuracy'])
     
     logging.info('')
     logging.info('#######################################################################################################')
@@ -332,13 +334,13 @@ if __name__ == '__main__':
 
     if  modes['train final model']:
         print('Train final model:')
-        history_final = model_final.fit(datagen.flow(x_train, y_train, batch_size=batch_size_final), steps_per_epoch=len(x_train) / batch_size_final, epochs=epochs_final, validation_data=(x_test, y_test), verbose=1, callbacks=[callback_checkpoint, callback_unfreeze])
+        history_final = model_final.fit(datagen.flow(x_train, y_train, batch_size=batch_size_final), steps_per_epoch=len(x_train) / batch_size_final, epochs=epochs_final, validation_data=(x_test, y_test), verbose=1, callbacks=[callback_checkpoint])
         save_history_plot(history_final, "final", folder_name_logging)
 
         print('Test final model')
         val_loss_finetuned, val_acc_finetuned = model_final.evaluate(x_test, y_test, verbose=1)
-        print('Loss: {}'.format(val_loss_inserted))
-        print('Accuracy: {}'.format(val_acc_inserted))
+        print('Loss: {}'.format(val_loss_finetuned))
+        print('Accuracy: {}'.format(val_acc_finetuned))
 
 
         if save_models:

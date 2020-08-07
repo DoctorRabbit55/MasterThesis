@@ -127,12 +127,16 @@ def modify_model(model, layer_indexes_to_delete=[], layer_indexes_to_output=[], 
 
     for j in range(1,len(model_reduced.layers)):
 
+        layer = model_reduced.layers[j]
+
         # skip shunt
         if shunt_to_insert:
-            if j in range(layer_indexes_to_delete[0]+len(shunt_to_insert.layers)-1):
+            if j in range(layer_indexes_to_delete[0], layer_indexes_to_delete[0]+len(shunt_to_insert.layers)-1):
+                weights = shunt_to_insert.get_layer(name=layer.name).get_weights()
+                if len(weights) > 0:
+                    model_reduced.layers[j].set_weights(weights)
                 continue
 
-        layer = model_reduced.layers[j]
         weights = model.get_layer(name=layer.name).get_weights()
         if len(weights) > 0:
             model_reduced.layers[j].set_weights(weights)

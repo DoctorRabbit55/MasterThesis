@@ -77,7 +77,7 @@ class MobileNetV2_extended(Model):
             return MobileNetV2_extended(inputs=input_net, outputs=preds)
 
         else:
-            mobilenet = MobileNetV2(input_shape=mobilenet_shape, include_top=True, weights=None, classes=num_classes, output_stride=8, backend=keras.backend, layers=keras.layers, models=keras.models, utils=keras.utils)
+            mobilenet = MobileNetV2(input_shape=mobilenet_shape, include_top=True, weights=None, classes=num_classes, output_stride=None, backend=keras.backend, layers=keras.layers, models=keras.models, utils=keras.utils)
 
             scale_factor = mobilenet_shape[0] // input_shape[0]
 
@@ -102,10 +102,10 @@ class MobileNetV2_extended(Model):
                 config = layer.get_config()
 
                 # CIFAR10 changes
-                if layer.name == 'block_1_depthwise':
+                if layer.name == 'expanded_conv_1_depthwise':
                     config['strides'] = (1,1)
                     config['padding'] = 'same'
-                if layer.name == 'block_1_pad':
+                if layer.name == 'expanded_conv_1_pad':
                     continue
 
                 next_layer = layer_from_config({'class_name': layer.__class__.__name__, 'config': config})
@@ -114,12 +114,12 @@ class MobileNetV2_extended(Model):
                     x = next_layer([x, output_residual.get()])
                 else:
                     x = next_layer(x)
-                
-                if "block_" in layer.name and "_project_BN" in layer.name:
+
+                if "_project_BN" in layer.name:
                     if output_residual.full():
                         output_residual.get()
                     output_residual.put(x)
-                if "block_" in layer.name and "_add" in layer.name:
+                if "_add" in layer.name:
                     if output_residual.full():
                         output_residual.get()
                     output_residual.put(x)
@@ -518,8 +518,8 @@ def MobileNetV2(input_shape=None,
     else:
         last_block_filters = 1280
 
-    if not output_stride :
-
+    if not output_stride:
+        
         x = layers.Conv2D(last_block_filters,
                         kernel_size=1,
                         use_bias=False,
