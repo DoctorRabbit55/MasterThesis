@@ -43,9 +43,10 @@ def create_mobilenet_v2(input_shape=(32,32,3), num_classes=10, is_pretrained=Fal
             if num_change_strides > 0:
                 if layer.__class__ == keras.layers.ZeroPadding2D:
                     continue
-                if config['strides'] == (2,2):
-                    config['strides'] = (1,1)
-                    num_change_strides -= 1 
+                if 'strides' in config.keys():
+                    if config['strides'] == (2,2):
+                        config['strides'] = (1,1)
+                        num_change_strides -= 1 
             next_layer = layer_from_config({'class_name': layer.__class__.__name__, 'config': config})
 
             if isinstance(layer, Add):
@@ -99,9 +100,11 @@ def create_mobilenet_v2(input_shape=(32,32,3), num_classes=10, is_pretrained=Fal
             if num_change_strides > 0:
                 if layer.__class__ == keras.layers.ZeroPadding2D:
                     continue
-                if config['strides'] == (2,2):
-                    config['strides'] = (1,1)
-                    num_change_strides -= 1 
+                if 'strides' in config.keys():
+                    if config['strides'] == (2,2):
+                        config['strides'] = (1,1)
+                        config['padding'] = 'same'
+                        num_change_strides -= 1 
 
             next_layer = layer_from_config({'class_name': layer.__class__.__name__, 'config': config})
 
