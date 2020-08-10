@@ -7,7 +7,7 @@ from shutil import copyfile
 from pathlib import Path
 import numpy as np
 
-from CDL.models.MobileNet_v2 import MobileNetV2_extended
+from CDL.models.MobileNet_v2 import create_mobilenet_v2
 from CDL.models.MobileNet_v3 import MobileNetV3_extended
 from CDL.shunt import Architectures
 from CDL.utils.calculateFLOPS import calculateFLOPs_model, calculateFLOPs_blocks
@@ -27,16 +27,8 @@ from matplotlib import pyplot as plt
 
 if __name__ == '__main__':
 
-    from tensorflow.compat.v1 import ConfigProto
-    from tensorflow.compat.v1 import InteractiveSession
-
-    config = ConfigProto()
-    config.gpu_options.polling_inactive_delay_msecs = 30
-    session = InteractiveSession(config=config)
-
     # READ CONFIG
-    config_path = Path(sys.path[0], "main.cfg")
-    #config_path = Path(sys.path[0], "config", "main.cfg")
+    config_path = Path(sys.path[0], "config", "classification.cfg")
     config = configparser.ConfigParser()
     config.read(config_path)
 
@@ -46,11 +38,8 @@ if __name__ == '__main__':
     modes['train final model'] = config['GENERAL'].getboolean('train final model')
     modes['train shunt model'] = config['GENERAL'].getboolean('train shunt model')
     loglevel = config['GENERAL'].getint('logging level')
-    save_models = config['GENERAL'].getboolean('save models')
 
     dataset_name = config['DATASET']['name']
-    subset_fraction = config['DATASET']['subset fraction']
-    num_classes = config['DATASET'].getint('number classes')
 
     model_type = config['MODEL']['type']
     load_model_from_file = config['MODEL'].getboolean('from file')
@@ -102,6 +91,7 @@ if __name__ == '__main__':
 
         (x_train, y_train), (x_test, y_test) = load_and_preprocess_CIFAR10()
         input_shape = (32,32,3)
+        num_classes = 10
 
         datagen = ImageDataGenerator(
             featurewise_center=False, 
@@ -114,21 +104,21 @@ if __name__ == '__main__':
         datagen.fit(x_train)
 
         print('CIFAR10 was loaded successfully!')
-    
+
     # load/create model
     model_extended = None
 
     if model_type == 'MobileNetV2':
         if load_model_from_file:
             model_tmp = keras.models.load_model(model_file_path)
-            model_extended = MobileNetV2_extended(model_tmp.input, model_tmp.output)
+            model_extended = create_mobilenet_v2(model_tmp.input, model_tmp.output)
         elif pretrained_on_imagenet:
-            model_extended = MobileNetV2_extended.create(is_pretrained=True, num_classes=num_classes)
+            model_extended = create_mobilenet_v2(is_pretrained=True, num_classes=num_classes)
         else:
             if scale_to_imagenet:
-                model_extended = MobileNetV2_extended.create(is_pretrained=False, num_classes=num_classes, input_shape=input_shape, mobilenet_shape=(224,224,3))
+                model_extended = create_mobilenet_v2(is_pretrained=False, num_classes=num_classes, input_shape=input_shape, mobilenet_shape=(224,224,3))
             else:
-                model_extended = MobileNetV2_extended.create(is_pretrained=False, num_classes=num_classes, input_shape=input_shape, mobilenet_shape=(32,32,3))
+                model_extended = create_mobilenet_v2(is_pretrained=False, num_classes=num_classes, input_shape=input_shape, mobilenet_shape=(32,32,3))
 
 
     if 'MobileNetV3' in model_type:
@@ -169,14 +159,11 @@ if __name__ == '__main__':
 
     flops_original = calculateFLOPs_model(model_extended)
 
-
-    # train model if weights are not loaded
-
-    callback = tf.keras.callbacks.EarlyStopping(monitor='loss', patience=5, verbose=1, restore_best_weights=True)
+    callback_checkpoint = keras.callbacks.ModelCheckpoint(str(Path(folder_name_logging, "original_model_weights.h5")), save_best_only=False, save_weights_only=True)
 
     if modes['train original model']:
         print('Train original model:')
-        history_original = model_extended.fit(datagen.flow(x_train, y_train, batch_size=batch_size_original), steps_per_epoch=len(x_train) / batch_size_original, epochs=epochs_original, validation_data=(x_test, y_test), verbose=1, callbacks=[callback])
+        history_original = model_extended.fit(datagen.flow(x_train, y_train, batch_size=batch_size_original), steps_per_epoch=len(x_train) / batch_size_original, epochs=epochs_original, validation_data=(x_test, y_test), verbose=1, callbacks=[callback_checkpoint])
         model_extended.save_weights(str(Path(folder_name_logging, "original_model_weights.h5")))
         save_history_plot(history_original, "original", folder_name_logging)
 
@@ -247,10 +234,9 @@ if __name__ == '__main__':
     logging.info('')
     model_shunt.summary(print_fn=logger.info, line_length=150)
 
-    if save_models:
-        keras.models.save_model(model_shunt, Path(folder_name_logging, "shunt_model.h5"))
-        logging.info('')
-        logging.info('Shunt model saved to {}'.format(folder_name_logging))
+    keras.models.save_model(model_shunt, Path(folder_name_logging, "shunt_model.h5"))
+    logging.info('')
+    logging.info('Shunt model saved to {}'.format(folder_name_logging))
     
     if shunt_params['pretrained']:
         model_shunt.load_weights(shunt_params['weightspath'])
@@ -281,10 +267,9 @@ if __name__ == '__main__':
     model_final = modify_model(model_extended, layer_indexes_to_delete=range(loc1, loc2+1), shunt_to_insert=model_shunt)
     #model_final.trainable = False
     
-    if save_models:
-        keras.models.save_model(model_final, Path(folder_name_logging, "final_model.h5"))
-        logging.info('')
-        logging.info('Final model saved to {}'.format(folder_name_logging))
+    keras.models.save_model(model_final, Path(folder_name_logging, "final_model.h5"))
+    logging.info('')
+    logging.info('Final model saved to {}'.format(folder_name_logging))
 
     flops_final = calculateFLOPs_model(model_final)
 
@@ -342,11 +327,9 @@ if __name__ == '__main__':
         print('Loss: {}'.format(val_loss_finetuned))
         print('Accuracy: {}'.format(val_acc_finetuned))
 
-
-        if save_models:
-            model_final.save_weights(str(Path(folder_name_logging, "final_model_weights.h5")))
-            logging.info('')
-            logging.info('Final model weights saved to {}'.format(folder_name_logging))
+        model_final.save_weights(str(Path(folder_name_logging, "final_model_weights.h5")))
+        logging.info('')
+        logging.info('Final model weights saved to {}'.format(folder_name_logging))
 
     logging.info('')
     logging.info('#######################################################################################################')

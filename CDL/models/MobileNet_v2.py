@@ -15,116 +15,111 @@ import numpy as np
 
 import queue
 
-class MobileNetV2_extended(Model):
+def create_mobilenet_v2(input_shape=(32,32,3), num_classes=10, is_pretrained=False, mobilenet_shape=(224,224,3), num_change_strides=0):
 
-    def __init__(self, inputs, outputs):
-        super().__init__(inputs=inputs, outputs=outputs, name='MobileNetV2')
+    assert(input_shape[0] == input_shape[1])
+    assert(224 % input_shape[0] == 0)
 
-    @classmethod
-    def create(self, input_shape=(32,32,3), num_classes=10, is_pretrained=False, mobilenet_shape=(224,224,3)):
+    mobilenet = None
 
-        assert(input_shape[0] == input_shape[1])
-        assert(224 % input_shape[0] == 0)
+    if is_pretrained:
+    
+        mobilenet = MobileNetV2(input_shape=mobilenet_shape, include_top=False, alpha=1.0, weights='imagenet')
 
-        mobilenet = None
+        output_residual = queue.Queue(2)
 
-        if is_pretrained:
-        
-            mobilenet = MobileNetV2(input_shape=mobilenet_shape, include_top=False, alpha=1.0, weights='imagenet')
+        for layer in mobilenet.layers:
+            layer.trainable = False
 
-            output_residual = queue.Queue(2)
+        input_net = Input(input_shape)
+        scale_factor = 224 // input_shape[0]
+        x = UpSampling2D((scale_factor, scale_factor))(input_net)
 
-            for layer in mobilenet.layers:
-                layer.trainable = False
+        for layer in mobilenet.layers[1:]:
 
-            input_net = Input(input_shape)
-            scale_factor = 224 // input_shape[0]
-            x = UpSampling2D((scale_factor, scale_factor))(input_net)
-
-            for layer in mobilenet.layers[1:]:
-
-                config = layer.get_config()
-                next_layer = layer_from_config({'class_name': layer.__class__.__name__, 'config': config})
-
-                if isinstance(layer, Add):
-                    x = next_layer([x, output_residual.get()])
-                else:
-                    x = next_layer(x)
-                
-                if "block_" in layer.name and "_project_BN" in layer.name:
-                    if output_residual.full():
-                        output_residual.get()
-                    output_residual.put(x)
-                if "block_" in layer.name and "_add" in layer.name:
-                    if output_residual.full():
-                        output_residual.get()
-                    output_residual.put(x)
-
-
-            model_reduced = Model(input_net, x)
-
-            for j in range(2,len(model_reduced.layers)):
-                layer = model_reduced.layers[j]
-                weights = mobilenet.get_layer(name=layer.name).get_weights()
-                if len(weights) > 0:
-                    model_reduced.layers[j].set_weights(weights)
-
-            x = GlobalAveragePooling2D()(x)
-            x = Dense(1024, activation='relu')(x)
-            x = Dense(512, activation='relu')(x)
-            preds = Dense(num_classes, activation='softmax')(x)
-
-            return MobileNetV2_extended(inputs=input_net, outputs=preds)
-
-        else:
-            mobilenet = MobileNetV2(input_shape=mobilenet_shape, include_top=True, weights=None, classes=num_classes, output_stride=None, backend=keras.backend, layers=keras.layers, models=keras.models, utils=keras.utils)
-
-            scale_factor = mobilenet_shape[0] // input_shape[0]
-
-            output_residual = queue.Queue(2)
-
-            input_net = Input(input_shape)
-            if scale_factor > 1:
-                x = UpSampling2D((scale_factor, scale_factor))(input_net)
-            else:
-                x = input_net
-
-            # CIFAR10 changes
-            layer = mobilenet.layers[2]
             config = layer.get_config()
-            config['strides'] = (1,1)
-            config['padding'] = 'same'
-            next_layer = layer_from_config({'class_name': layer.__class__.__name__, 'config': config})
-            x = next_layer(x)
-
-            for layer in mobilenet.layers[3:]:
-
-                config = layer.get_config()
-
-                # CIFAR10 changes
-                if layer.name == 'expanded_conv_1_depthwise':
-                    config['strides'] = (1,1)
-                    config['padding'] = 'same'
-                if layer.name == 'expanded_conv_1_pad':
+            
+            # check if stride has to be changed
+            if num_change_strides > 0:
+                if layer.__class__ == keras.layers.ZeroPadding2D:
                     continue
+                if config['strides'] == (2,2):
+                    config['strides'] = (1,1)
+                    num_change_strides -= 1 
+            next_layer = layer_from_config({'class_name': layer.__class__.__name__, 'config': config})
 
-                next_layer = layer_from_config({'class_name': layer.__class__.__name__, 'config': config})
+            if isinstance(layer, Add):
+                x = next_layer([x, output_residual.get()])
+            else:
+                x = next_layer(x)
+            
+            if "block_" in layer.name and "_project_BN" in layer.name:
+                if output_residual.full():
+                    output_residual.get()
+                output_residual.put(x)
+            if "block_" in layer.name and "_add" in layer.name:
+                if output_residual.full():
+                    output_residual.get()
+                output_residual.put(x)
 
-                if isinstance(layer, Add):
-                    x = next_layer([x, output_residual.get()])
-                else:
-                    x = next_layer(x)
 
-                if "_project_BN" in layer.name:
-                    if output_residual.full():
-                        output_residual.get()
-                    output_residual.put(x)
-                if "_add" in layer.name:
-                    if output_residual.full():
-                        output_residual.get()
-                    output_residual.put(x)
+        model_reduced = Model(input_net, x)
 
-            return MobileNetV2_extended(inputs=input_net, outputs=x)
+        for j in range(2,len(model_reduced.layers)):
+            layer = model_reduced.layers[j]
+            weights = mobilenet.get_layer(name=layer.name).get_weights()
+            if len(weights) > 0:
+                model_reduced.layers[j].set_weights(weights)
+
+        x = GlobalAveragePooling2D()(x)
+        x = Dense(1024, activation='relu')(x)
+        x = Dense(512, activation='relu')(x)
+        preds = Dense(num_classes, activation='softmax')(x)
+
+        return Model(inputs=input_net, outputs=preds, name='mobilenetv2')
+
+    else:
+        mobilenet = MobileNetV2(input_shape=mobilenet_shape, include_top=True, weights=None, classes=num_classes, output_stride=None, backend=keras.backend, layers=keras.layers, models=keras.models, utils=keras.utils)
+
+        scale_factor = mobilenet_shape[0] // input_shape[0]
+
+        output_residual = queue.Queue(2)
+
+        input_net = Input(input_shape)
+        if scale_factor > 1:
+            x = UpSampling2D((scale_factor, scale_factor))(input_net)
+        else:
+            x = input_net
+
+        for layer in mobilenet.layers[1:]:
+
+            config = layer.get_config()
+
+            # check if stride has to be changed
+            if num_change_strides > 0:
+                if layer.__class__ == keras.layers.ZeroPadding2D:
+                    continue
+                if config['strides'] == (2,2):
+                    config['strides'] = (1,1)
+                    num_change_strides -= 1 
+
+            next_layer = layer_from_config({'class_name': layer.__class__.__name__, 'config': config})
+
+            if isinstance(layer, Add):
+                x = next_layer([x, output_residual.get()])
+            else:
+                x = next_layer(x)
+
+            if "_project_BN" in layer.name:
+                if output_residual.full():
+                    output_residual.get()
+                output_residual.put(x)
+            if "_add" in layer.name:
+                if output_residual.full():
+                    output_residual.get()
+                output_residual.put(x)
+
+        return Model(inputs=input_net, outputs=x, name='mobilenetv2')
 
 
 """MobileNet v2 models for Keras.

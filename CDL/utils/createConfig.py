@@ -8,37 +8,34 @@ if __name__ == '__main__':
 
     # GENERAL
     config['GENERAL'] = {'logging level': logging.INFO,
-                         'save models': True,
                          'calc knowledge quotient': False,
                          'train original model': False,
                          'train shunt model': False,
                          'train final model': False}
 
     # DATASET
-    config['DATASET'] = {'name': 'CIFAR10',
-                         'subset fraction': 1.0,
-                         'number classes': 10}
+    config['DATASET'] = {'name': 'CIFAR10'}
 
     # MODEL
     config['MODEL'] = {'type': 'MobileNetV2',
-                       'from file': True,
-                       'filepath': "C:/Users/bha/Documents/CDL/Tensorflow_2.2/python_code/mobilenet_v2-like5__2018-08-26-16-42-57_instance.h5",
-                       'pretrained': True,
-                       'weightspath': "C:/Users/bha/Documents/CDL/Tensorflow_2.2/python_code/mobilenet_v2-like5__2018-08-26-16-42-57_weights.h5",
-                       'pretrained on ImageNet': False,
-                       'scale to ImageNet': False}
+                       'from file': False,
+                       'filepath': "",
+                       'pretrained': False,
+                       'weightspath': "",
+                       'scale up input': False,
+                       'change stride layers': 2}
 
     # TRAINING
-    config['TRAINING_ORIGINAL_MODEL'] = {'batchsize': 32,
-                                         'epochs': 10,
-                                         'learning rate': 1e-1}
+    config['TRAINING_ORIGINAL_MODEL'] = {'batchsize': 16,
+                                         'epochs': 100,
+                                         'learning rate': 0.1}
 
-    config['TRAINING_SHUNT_MODEL'] = {'batchsize': 32,
-                                      'epochs': 10,
-                                      'learning rate': 1e-2}
+    config['TRAINING_SHUNT_MODEL'] = {'batchsize': 64,
+                                      'epochs': 100,
+                                      'learning rate': 0.2}
 
-    config['TRAINING_FINAL_MODEL'] = {'batchsize': 64,
-                                      'epochs': 10,
+    config['TRAINING_FINAL_MODEL'] = {'batchsize': 16,
+                                      'epochs': 100,
                                       'learning rate': 1e-3}
 
     # SHUNT
@@ -47,17 +44,17 @@ if __name__ == '__main__':
                        'input shape': '8,8,64',
                        'output shape': '8,8,96',
                        'from file': False,
-                       'filepath': "C:/Users/bha/Documents/CDL/Tensorflow_2.2/python_code/mobilenet_v2-like5__2018-08-26-16-42-57_weights.h5",
+                       'filepath': "",
                        'pretrained': False,
-                       'weightspath': "C:/Users/bha/Documents/CDL/Tensorflow_2.2/python_code/mobilenet_v2-like5__2018-08-26-16-42-57_weights.h5",
+                       'weightspath': "",
                        'load featuremaps': True,
-                       'featuremapspath': "C:/Users/bha/Documents/CDL/Tensorflow_2.2/python_code/saved/feature_maps/pretrained_CIFAR/",
+                       'featuremapspath': "",
                        'save featuremaps': True}
 
 
     # FINAL MODEL
     config['FINAL_MODEL'] = {'pretrained': False,
-                             'weightspath': "C:/Users/bha/Documents/CDL/Tensorflow_2.2/python_code/mobilenet_v2-like5__2018-08-26-16-42-57_weights.h5"}
+                             'weightspath': ""}
 
-    with open('main.cfg', 'w') as configfile:
+    with open('classification.cfg', 'w') as configfile:
         config.write(configfile)
