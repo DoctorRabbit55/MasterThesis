@@ -44,6 +44,7 @@ if __name__ == '__main__':
     dataset_name = config['DATASET']['name']
 
     model_type = config['MODEL']['type']
+    number_change_stride_layers = config['MODEL'].getint('change stride layers')
     load_model_from_file = config['MODEL'].getboolean('from file')
     if (load_model_from_file):
         model_file_path = config['MODEL']['filepath']
@@ -106,19 +107,19 @@ if __name__ == '__main__':
         print('CIFAR10 was loaded successfully!')
 
     # load/create model
-    model_extended = None
+    model_original = None
 
     if model_type == 'MobileNetV2':
         if load_model_from_file:
             model_tmp = keras.models.load_model(model_file_path)
-            model_extended = create_mobilenet_v2(model_tmp.input, model_tmp.output)
+            model_original = create_mobilenet_v2(model_tmp.input, model_tmp.output)
         elif pretrained_on_imagenet:
-            model_extended = create_mobilenet_v2(is_pretrained=True, num_classes=num_classes)
+            model_original = create_mobilenet_v2(is_pretrained=True, num_classes=num_classes, num_change_strides=number_change_stride_layers)
         else:
             if scale_to_imagenet:
-                model_extended = create_mobilenet_v2(is_pretrained=False, num_classes=num_classes, input_shape=input_shape, mobilenet_shape=(224,224,3))
+                model_original = create_mobilenet_v2(is_pretrained=False, num_classes=num_classes, input_shape=input_shape, mobilenet_shape=(224,224,3), num_change_strides=number_change_stride_layers)
             else:
-                model_extended = create_mobilenet_v2(is_pretrained=False, num_classes=num_classes, input_shape=input_shape, mobilenet_shape=(32,32,3))
+                model_original = create_mobilenet_v2(is_pretrained=False, num_classes=num_classes, input_shape=input_shape, mobilenet_shape=(32,32,3), num_change_strides=number_change_stride_layers)
 
 
     if 'MobileNetV3' in model_type:
@@ -129,17 +130,17 @@ if __name__ == '__main__':
 
         if load_model_from_file:
             model_tmp = keras.models.load_model(model_file_path)
-            model_extended = MobileNetV3_extended(model_tmp.input, model_tmp.output)
+            model_original = MobileNetV3_extended(model_tmp.input, model_tmp.output)
         elif pretrained_on_imagenet:
-            model_extended = MobileNetV3_extended.create(is_pretrained=True, num_classes=num_classes, is_small=is_small)
+            model_original = MobileNetV3_extended.create(is_pretrained=True, num_classes=num_classes, is_small=is_small)
         else:
             if scale_to_imagenet:
-                model_extended = MobileNetV3_extended.create(is_pretrained=False, num_classes=num_classes, is_small=is_small, input_shape=input_shape, mobilenet_shape=(224,224,3))
+                model_original = MobileNetV3_extended.create(is_pretrained=False, num_classes=num_classes, is_small=is_small, input_shape=input_shape, mobilenet_shape=(224,224,3))
             else:
-                model_extended = MobileNetV3_extended.create(is_pretrained=False, num_classes=num_classes, is_small=is_small, input_shape=input_shape, mobilenet_shape=(32,32,3))
+                model_original = MobileNetV3_extended.create(is_pretrained=False, num_classes=num_classes, is_small=is_small, input_shape=input_shape, mobilenet_shape=(32,32,3))
 
     if pretrained:
-        model_extended.load_weights(weights_file_path)
+        model_original.load_weights(weights_file_path)
         print('Weights loaded successfully!')
 
 
@@ -150,43 +151,43 @@ if __name__ == '__main__':
     learning_rate_first_cycle_original = training_original_model.getfloat('learning rate first cycle')
     learning_rate_second_cycle_original = training_original_model.getfloat('learning rate second cycle')
 
-    model_extended.compile(loss='categorical_crossentropy', optimizer=keras.optimizers.SGD(lr=learning_rate_first_cycle_original, momentum=0.9, decay=0.0), metrics=['accuracy'])
+    model_original.compile(loss='categorical_crossentropy', optimizer=keras.optimizers.SGD(lr=learning_rate_first_cycle_original, momentum=0.9, decay=0.0), metrics=['accuracy'])
 
     logging.info('')
     logging.info('#######################################################################################################')
     logging.info('########################################### ORIGINAL MODEL ############################################')
     logging.info('#######################################################################################################')
     logging.info('')
-    model_extended.summary(print_fn=logger.info, line_length=150)
+    model_original.summary(print_fn=logger.info, line_length=150)
     print('{} successfully created!'.format(model_type))
 
-    flops_original = calculateFLOPs_model(model_extended)
+    flops_original = calculateFLOPs_model(model_original)
 
     callback_checkpoint = keras.callbacks.ModelCheckpoint(str(Path(folder_name_logging, "original_model_weights.h5")), save_best_only=False, save_weights_only=True)
     callback_learning_rate = LearningRateSchedulerCallback(epochs_first_cycle=epochs_first_cycle_original, learning_rate_second_cycle=learning_rate_second_cycle_original)
 
     if modes['train original model']:
         print('Train original model:')
-        history_original = model_extended.fit(datagen.flow(x_train, y_train, batch_size=batch_size_original), steps_per_epoch=5, epochs=epochs_original, validation_data=(x_test, y_test), verbose=1, callbacks=[callback_checkpoint, callback_learning_rate])
-        model_extended.save_weights(str(Path(folder_name_logging, "original_model_weights.h5")))
+        history_original = model_original.fit(datagen.flow(x_train, y_train, batch_size=batch_size_original), steps_per_epoch=5, epochs=epochs_original, validation_data=(x_test, y_test), verbose=1, callbacks=[callback_checkpoint, callback_learning_rate])
+        model_original.save_weights(str(Path(folder_name_logging, "original_model_weights.h5")))
         save_history_plot(history_original, "original", folder_name_logging)
 
     # test original model
     print('Test original model')
-    val_loss_original, val_acc_original = model_extended.evaluate(x_test, y_test, verbose=1)
+    val_loss_original, val_acc_original = model_original.evaluate(x_test, y_test, verbose=1)
     print('Loss: {}'.format(val_loss_original))
     print('Accuracy: {}'.format(val_acc_original))
 
     if modes['calc knowledge quotient']:
-        know_quot = get_knowledge_quotients(model=model_extended, data=(x_test, y_test), val_acc_model=val_acc_original)
+        know_quot = get_knowledge_quotients(model=model_original, data=(x_test, y_test), val_acc_model=val_acc_original)
         logging.info('')
         logging.info('################# RESULT ###################')
         logging.info('')
         logging.info('Original model: loss: {:.5f}, acc: {:.5f}'.format(val_loss_original, val_acc_original))
         logging.info('')
         for (residual_idx, end_idx, value) in know_quot:
-            logging.info("Block starts with: {}, location: {}".format(model_extended.get_layer(index=residual_idx+1).name, residual_idx+1))
-            logging.info("Block ends with: {}, location: {}".format(model_extended.get_layer(index=end_idx).name, end_idx))   
+            logging.info("Block starts with: {}, location: {}".format(model_original.get_layer(index=residual_idx+1).name, residual_idx+1))
+            logging.info("Block ends with: {}, location: {}".format(model_original.get_layer(index=end_idx).name, end_idx))   
             logging.info("Block knowledge quotient: {}\n".format(value)) 
         exit()
 
@@ -209,8 +210,8 @@ if __name__ == '__main__':
     else:
         
         print('Feature maps extracting started:')
-        (fm1_train, fm2_train)  = extract_feature_maps(model_extended, x_train, [loc1-1, loc2]) # -1 since we need the input of the layer
-        (fm1_test, fm2_test) = extract_feature_maps(model_extended, x_test, [loc1-1, loc2]) # -1 since we need the input of the layer
+        (fm1_train, fm2_train)  = extract_feature_maps(model_original, x_train, [loc1-1, loc2]) # -1 since we need the input of the layer
+        (fm1_test, fm2_test) = extract_feature_maps(model_original, x_test, [loc1-1, loc2]) # -1 since we need the input of the layer
 
         np.save(Path(shunt_params['featuremapspath'], "fm1_train_{}_{}".format(loc1, loc2)), fm1_train)
         np.save(Path(shunt_params['featuremapspath'], "fm2_train_{}_{}".format(loc1, loc2)), fm2_train)
@@ -268,8 +269,7 @@ if __name__ == '__main__':
 
     fm1_test = fm1_train = fm2_test = fm2_train = None
 
-    # TODO: find out why +1 is needed
-    model_final = modify_model(model_extended, layer_indexes_to_delete=range(loc1, loc2+1), shunt_to_insert=model_shunt)
+    model_final = modify_model(model_original, layer_indexes_to_delete=range(loc1, loc2+1), shunt_to_insert=model_shunt) # +1 needed because of the way range works
     
     keras.models.save_model(model_final, Path(folder_name_logging, "final_model.h5"))
     logging.info('')
