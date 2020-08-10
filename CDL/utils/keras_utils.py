@@ -1,10 +1,17 @@
 import keras
 from keras.layers import Add, Multiply, Input, Activation
 from keras.layers import deserialize as layer_from_config
+from keras.utils.generic_utils import get_custom_objects
 
 import unittest
 from keras.applications import MobileNetV2
-#from keras_applications.mobilenet_v3 import MobileNetV3Small
+from keras_applications.mobilenet_v3 import MobileNetV3Small
+
+class HardSwish(Activation):
+
+    def __init_(self, activation, **kwargs):
+        super(HardSwish, self).__init__(activation, **kwargs)
+        self.__name__ = 'hard_swish'
 
 def hard_swish(x):
     return Multiply()([Activation(keras.activations.hard_sigmoid)(x), x])
@@ -45,7 +52,7 @@ def identify_residual_layer_indexes(model):
     return add_incoming_index_dic, mult_incoming_index_dic
 
 def modify_model(model, layer_indexes_to_delete=[], layer_indexes_to_output=[], shunt_to_insert=None):
-
+    get_custom_objects().update({'hard_swish': hard_swish})
     add_input_index_dic, mult_input_index_dic = identify_residual_layer_indexes(model)
     add_input_tensors = {}
     mult_input_tensors = {}
@@ -80,13 +87,8 @@ def modify_model(model, layer_indexes_to_delete=[], layer_indexes_to_output=[], 
         config = layer.get_config()
 
         # there is a bug in layer_from_config, where custom Activation are not passed correctly
-        if 'activation' in config:
-            if type(config['activation']) is not str:
-                next_layer = Activation(hard_swish, name=layer.name)
-            else:
-                next_layer = layer_from_config({'class_name': layer.__class__.__name__, 'config': config})  
-        else:
-            next_layer = layer_from_config({'class_name': layer.__class__.__name__, 'config': config})
+
+        next_layer = layer_from_config({'class_name': layer.__class__.__name__, 'config': config})
         should_delete = False
         for layer_index_to_delete in layer_indexes_to_delete:
             if i == layer_index_to_delete:

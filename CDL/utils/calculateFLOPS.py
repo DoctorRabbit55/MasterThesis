@@ -50,7 +50,11 @@ def calculateFLOPs_blocks(model, block_to_measure_indexes):
 
 def calculateFLOPs_layer(layer, flops_dic):
     
-    config = layer.get_config()
+    try:
+        config = layer.get_config()
+    except:
+        return flops_dic
+
     flops_layer = 0
     if layer.__class__ is Conv2D:
 
