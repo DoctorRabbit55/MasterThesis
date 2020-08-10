@@ -13,6 +13,12 @@ import numpy as np
 
 import queue
 
+class HardSwish(Activation):
+
+    def __init_(self, activation, **kwargs):
+        super(HardSwish, self).__init__(activation, **kwargs)
+        self.__name__ = 'hard_swish'
+
 def hard_swish(x):
     return Multiply()([Activation(keras.activations.hard_sigmoid)(x), x])
 
@@ -27,7 +33,7 @@ class MobileNetV3_extended(Model):
         assert(input_shape[0] == input_shape[1])
         assert(224 % input_shape[0] == 0)
 
-        get_custom_objects().update({'hard_swish': Activation(hard_swish)})
+        get_custom_objects().update({'hard_swish': hard_swish})
 
         mobilenet = None
         self.is_small = is_small
@@ -147,7 +153,7 @@ class MobileNetV3_extended(Model):
                 x = input_net
             
             # CIFAR10 changes
-            number_layers_stride_changed = 0
+            number_layers_stride_changed = 2
 
             # add first 4 layers which are not part of blocks
             for layer in mobilenet.layers[1:5]:
@@ -160,15 +166,20 @@ class MobileNetV3_extended(Model):
                 x = next_layer(x)
             
             for layer in mobilenet.layers[5:-6]:
-
                 config = layer.get_config()
-                if 'strides' in config and number_layers_stride_changed > 0:
-                    if config['strides'] == (2,2):
-                        config['strides'] = (1,1)
-                        number_layers_stride_changed -= 1
-                next_layer = layer_from_config({'class_name': layer.__class__.__name__, 'config': config})
+                if isinstance(layer, Activation):
+                    if layer.activation.__name__ == 'hard_swish':
+                        next_layer = Activation(hard_swish, name=layer.name)
+                    else:
+                        next_layer = layer_from_config({'class_name': layer.__class__.__name__, 'config': config})
+                else:
+                    if 'strides' in config and number_layers_stride_changed > 0:
+                        if config['strides'] == (2,2):
+                            config['strides'] = (1,1)
+                            number_layers_stride_changed -= 1
+                    next_layer = layer_from_config({'class_name': layer.__class__.__name__, 'config': config})
 
-                # look if next block startsF
+                # look if next block starts
                 if next_layer.name.endswith('/expand'):
                     block_num += 1 
 
@@ -231,7 +242,7 @@ class MobileNetV3_extended(Model):
 
 
     def dropBlocks(self, block_indexes):
-        get_custom_objects().update({'hard_swish': Activation(hard_swish)})
+        get_custom_objects().update({'hard_swish': hard_swish})
 
         output_residual = queue.Queue(2)
         multiply_input = queue.Queue(2)

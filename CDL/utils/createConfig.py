@@ -53,7 +53,7 @@ if __name__ == '__main__':
                        'filepath': "",
                        'pretrained': False,
                        'weightspath': "",
-                       'featuremapspath': "",
+                       'featuremapspath': ""}
 
 
     # FINAL MODEL
