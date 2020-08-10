@@ -1,6 +1,7 @@
 from keras.callbacks import Callback
 from keras.layers import BatchNormalization
 from keras.optimizers import SGD
+from keras import backend
 import numpy as np
 
 class UnfreezeLayersCallback(Callback):
@@ -23,3 +24,14 @@ class UnfreezeLayersCallback(Callback):
         self.model.compile(loss='categorical_crossentropy', optimizer=SGD(lr=self.learning_rate, momentum=0.9, decay=0.0, nesterov=False), metrics=['accuracy'])
 
         print("Layers unfreezed: ", unfreezed)
+
+class LearningRateSchedulerCallback(Callback):
+
+    def __init__(self, epochs_first_cycle, learning_rate_second_cycle):
+        super(LearningRateSchedulerCallback, self).__init__()
+        self.epochs_first_cycle = epochs_first_cycle
+        self.learning_rate_second_cycle = learning_rate_second_cycle
+
+    def on_epoch_begin(self, epoch, logs=None):
+        if epoch == self.epochs_first_cycle:
+            backend.set_value(self.model.optimizer.lr, self.learning_rate_second_cycle)

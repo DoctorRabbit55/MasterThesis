@@ -27,16 +27,22 @@ if __name__ == '__main__':
 
     # TRAINING
     config['TRAINING_ORIGINAL_MODEL'] = {'batchsize': 16,
-                                         'epochs': 100,
-                                         'learning rate': 0.1}
+                                         'epochs first cycle': 100,
+                                         'learning rate first cycle': 1e-1,
+                                         'epochs second cycle': 100,
+                                         'learning rate seecond cycle': 1e-3}
 
     config['TRAINING_SHUNT_MODEL'] = {'batchsize': 64,
-                                      'epochs': 100,
-                                      'learning rate': 0.2}
+                                      'epochs first cycle': 100,
+                                      'learning rate first cycle': 2e-1,
+                                      'epochs second cycle': 100,
+                                      'learning rate second cycle': 1e-3}
 
     config['TRAINING_FINAL_MODEL'] = {'batchsize': 16,
-                                      'epochs': 100,
-                                      'learning rate': 1e-3}
+                                      'epochs first cycle': 100,
+                                      'learning rate first cycle': 1e-3,
+                                      'epochs second cycle': 100,
+                                      'learning rate second cycle': 1e-5}
 
     # SHUNT
     config['SHUNT'] = {'location': '7,12',
@@ -47,9 +53,7 @@ if __name__ == '__main__':
                        'filepath': "",
                        'pretrained': False,
                        'weightspath': "",
-                       'load featuremaps': True,
                        'featuremapspath': "",
-                       'save featuremaps': True}
 
 
     # FINAL MODEL
