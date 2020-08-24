@@ -30,7 +30,7 @@ if __name__ == '__main__':
                                          'epochs first cycle': 100,
                                          'learning rate first cycle': 1e-1,
                                          'epochs second cycle': 100,
-                                         'learning rate seecond cycle': 1e-3}
+                                         'learning rate second cycle': 1e-3}
 
     config['TRAINING_SHUNT_MODEL'] = {'batchsize': 64,
                                       'epochs first cycle': 100,

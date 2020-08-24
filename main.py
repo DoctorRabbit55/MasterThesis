@@ -168,7 +168,7 @@ if __name__ == '__main__':
 
     if modes['train original model']:
         print('Train original model:')
-        history_original = model_original.fit(datagen.flow(x_train, y_train, batch_size=batch_size_original), steps_per_epoch=5, epochs=epochs_original, validation_data=(x_test, y_test), verbose=1, callbacks=[callback_checkpoint, callback_learning_rate])
+        history_original = model_original.fit(datagen.flow(x_train, y_train, batch_size=batch_size_original), epochs=epochs_original, validation_data=(x_test, y_test), verbose=1, callbacks=[callback_checkpoint, callback_learning_rate])
         model_original.save_weights(str(Path(folder_name_logging, "original_model_weights.h5")))
         save_history_plot(history_original, "original", folder_name_logging)
 
@@ -248,7 +248,7 @@ if __name__ == '__main__':
     batch_size_shunt = training_shunt_model.getint('batchsize')
     epochs_first_cycle_shunt = training_shunt_model.getint('epochs first cycle')
     epochs_second_cycle_shunt = training_shunt_model.getint('epochs second cycle')
-    epochs_shunt = epochs_first_cycle_shunt + epochs_second_cycle_original
+    epochs_shunt = epochs_first_cycle_shunt + epochs_second_cycle_shunt
     learning_rate_first_cycle_shunt = training_shunt_model.getfloat('learning rate first cycle')
     learning_rate_second_cycle_shunt = training_shunt_model.getfloat('learning rate second cycle')
 
@@ -294,7 +294,7 @@ if __name__ == '__main__':
     batch_size_final = training_final_model.getint('batchsize')
     epochs_first_cycle_final = training_final_model.getint('epochs first cycle')
     epochs_second_cycle_final = training_final_model.getint('epochs second cycle')
-    epochs_final = epochs_first_cycle_final + epochs_second_cycle_original
+    epochs_final = epochs_first_cycle_final + epochs_second_cycle_final
     learning_rate_first_cycle_final = training_final_model.getfloat('learning rate first cycle')
     learning_rate_second_cycle_final = training_final_model.getfloat('learning rate second cycle')
     model_final.compile(loss='categorical_crossentropy', optimizer=keras.optimizers.SGD(lr=learning_rate_first_cycle_final, momentum=0.9, decay=0.0, nesterov=False), metrics=['accuracy'])
@@ -312,9 +312,14 @@ if __name__ == '__main__':
     print('Accuracy: {}'.format(val_acc_inserted))
 
     callback_checkpoint = keras.callbacks.ModelCheckpoint(str(Path(folder_name_logging, "final_model_weights.h5")), save_best_only=False, save_weights_only=True)
-    #callback_unfreeze = UnfreezeLayersCallback(epochs=epochs_final, num_layers=len(model_final.layers), learning_rate=learning_rate_final)
+    callback_unfreeze = UnfreezeLayersCallback(epochs=epochs_final, epochs_per_unfreeze=2, learning_rate=learning_rate_first_cycle_final, unfreeze_to_index=loc1+len(model_shunt.layers))
     callback_learning_rate = LearningRateSchedulerCallback(epochs_first_cycle=epochs_first_cycle_final, learning_rate_second_cycle=learning_rate_second_cycle_final)
 
+    for i, layer in enumerate(model_final.layers):
+        #if i < loc1 + len(model_shunt.layers):
+        #if i < loc1 or i > loc1 + len(model_shunt.layers):
+        layer.trainable = False
+    model_final.compile(loss='categorical_crossentropy', optimizer=keras.optimizers.SGD(lr=learning_rate_first_cycle_final, momentum=0.9, decay=0.0, nesterov=False), metrics=['accuracy'])
 
     if final_model_params['pretrained']:
         model_final.load_weights(final_model_params['weightspath'])
@@ -327,7 +332,7 @@ if __name__ == '__main__':
 
     if  modes['train final model']:
         print('Train final model:')
-        history_final = model_final.fit(datagen.flow(x_train, y_train, batch_size=batch_size_final), epochs=epochs_final, validation_data=(x_test, y_test), verbose=1, callbacks=[callback_checkpoint, callback_learning_rate])
+        history_final = model_final.fit(datagen.flow(x_train, y_train, batch_size=batch_size_final), epochs=epochs_final, validation_data=(x_test, y_test), verbose=1, callbacks=[callback_checkpoint, callback_unfreeze])
         save_history_plot(history_final, "final", folder_name_logging)
 
         print('Test final model')
