@@ -6,26 +6,25 @@ import numpy as np
 
 class UnfreezeLayersCallback(Callback):
 
-    def __init__(self, epochs, epochs_per_unfreeze, learning_rate, unfreeze_to_index=0):
+    def __init__(self, epochs, epochs_per_unfreeze, learning_rate, unfreeze_to_index=0, start_at=0, direction=-1):
         self.epochs_per_unfreeze = epochs_per_unfreeze
         self.learning_rate = learning_rate
         self.unfreeze_to_index = unfreeze_to_index
-        self.unfreezed_index = -1
+        self.start_at = start_at
+        self.unfreezed_index = start_at
+        self.increment = direction
+
 
     def on_epoch_begin(self, epoch, logs=None):
-        
-        # first epoch
-        if self.unfreezed_index == -1:
-            self.unfreezed_index = len(self.model.layers) - 1
 
         unfreezed = []
 
         if epoch % self.epochs_per_unfreeze == 0 and self.unfreezed_index >= self.unfreeze_to_index:
 
-            self.unfreezed_index -= 1
+            self.unfreezed_index += self.increment
 
             if isinstance( self.model.layers[self.unfreezed_index], BatchNormalization):
-                self.unfreezed_index -= 1
+                self.unfreezed_index += self.increment
             
             self.model.layers[self.unfreezed_index].trainable = True
             unfreezed.append(self.model.layers[self.unfreezed_index].name)

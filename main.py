@@ -39,6 +39,7 @@ if __name__ == '__main__':
     modes['train original model'] = config['GENERAL'].getboolean('train original model')
     modes['train final model'] = config['GENERAL'].getboolean('train final model')
     modes['train shunt model'] = config['GENERAL'].getboolean('train shunt model')
+    modes['test shunt model'] = config['GENERAL'].getboolean('test shunt model')
     loglevel = config['GENERAL'].getint('logging level')
 
     dataset_name = config['DATASET']['name']
@@ -194,33 +195,6 @@ if __name__ == '__main__':
 
     loc1 = shunt_params['locations'][0]
     loc2 = shunt_params['locations'][1]
-
-    # Feature maps
-
-    fm1_train = fm2_train = fm1_test = fm2_test = None
-    
-    if os.path.isfile(Path(shunt_params['featuremapspath'], "fm1_train_{}_{}.npy".format(loc1, loc2))):
-    
-        fm1_train = np.load(Path(shunt_params['featuremapspath'], "fm1_train_{}_{}.npy".format(loc1, loc2)))
-        fm2_train = np.load(Path(shunt_params['featuremapspath'], "fm2_train_{}_{}.npy".format(loc1, loc2)))
-        fm1_test = np.load(Path(shunt_params['featuremapspath'], "fm1_test_{}_{}.npy".format(loc1, loc2)))
-        fm2_test = np.load(Path(shunt_params['featuremapspath'], "fm2_test_{}_{}.npy".format(loc1, loc2)))
-        print('Feature maps loaded successfully!')
-
-    else:
-        
-        print('Feature maps extracting started:')
-        (fm1_train, fm2_train)  = extract_feature_maps(model_original, x_train, [loc1-1, loc2]) # -1 since we need the input of the layer
-        (fm1_test, fm2_test) = extract_feature_maps(model_original, x_test, [loc1-1, loc2]) # -1 since we need the input of the layer
-
-        np.save(Path(shunt_params['featuremapspath'], "fm1_train_{}_{}".format(loc1, loc2)), fm1_train)
-        np.save(Path(shunt_params['featuremapspath'], "fm2_train_{}_{}".format(loc1, loc2)), fm2_train)
-        np.save(Path(shunt_params['featuremapspath'], "fm1_test_{}_{}".format(loc1, loc2)), fm1_test)
-        np.save(Path(shunt_params['featuremapspath'], "fm2_test_{}_{}".format(loc1, loc2)), fm2_test)
-
-        logging.info('')
-        logging.info('Featuremaps saved to {}'.format(shunt_params['featuremapspath']))
-    
     
     if shunt_params['from_file']:
         model_shunt = keras.models.load_model(shunt_params['filepath'])
@@ -257,17 +231,47 @@ if __name__ == '__main__':
     callback_checkpoint = keras.callbacks.ModelCheckpoint(str(Path(folder_name_logging, "shunt_model_weights.h5")), save_best_only=False, save_weights_only=True)
     callback_learning_rate = LearningRateSchedulerCallback(epochs_first_cycle=epochs_first_cycle_shunt, learning_rate_second_cycle=learning_rate_second_cycle_shunt)
 
-    if modes['train shunt model']:
-        print('Train shunt model:')
-        history_shunt = model_shunt.fit(x=fm1_train, y=fm2_train, batch_size=batch_size_shunt, epochs=epochs_shunt, validation_data=(fm1_test, fm2_test), verbose=1, callbacks=[callback_checkpoint, callback_learning_rate])
-        save_history_plot(history_shunt, "shunt", folder_name_logging)
+    # Feature maps
 
-    print('Test shunt model')
-    val_loss_shunt, _, val_acc_shunt, = model_shunt.evaluate(fm1_test, fm2_test, verbose=1)
-    print('Loss: {:.5f}'.format(val_loss_shunt))
-    print('Accuracy: {:.5f}'.format(val_acc_shunt))
+    if modes['test shunt model'] or modes['train shunt model']:
 
-    fm1_test = fm1_train = fm2_test = fm2_train = None
+        fm1_train = fm2_train = fm1_test = fm2_test = None
+        
+        if os.path.isfile(Path(shunt_params['featuremapspath'], "fm1_train_{}_{}.npy".format(loc1, loc2))):
+        
+            fm1_train = np.load(Path(shunt_params['featuremapspath'], "fm1_train_{}_{}.npy".format(loc1, loc2)))
+            fm2_train = np.load(Path(shunt_params['featuremapspath'], "fm2_train_{}_{}.npy".format(loc1, loc2)))
+            fm1_test = np.load(Path(shunt_params['featuremapspath'], "fm1_test_{}_{}.npy".format(loc1, loc2)))
+            fm2_test = np.load(Path(shunt_params['featuremapspath'], "fm2_test_{}_{}.npy".format(loc1, loc2)))
+            print('Feature maps loaded successfully!')
+
+        else:
+            
+            print('Feature maps extracting started:')
+            (fm1_train, fm2_train)  = extract_feature_maps(model_original, x_train, [loc1-1, loc2]) # -1 since we need the input of the layer
+            (fm1_test, fm2_test) = extract_feature_maps(model_original, x_test, [loc1-1, loc2]) # -1 since we need the input of the layer
+
+            np.save(Path(shunt_params['featuremapspath'], "fm1_train_{}_{}".format(loc1, loc2)), fm1_train)
+            np.save(Path(shunt_params['featuremapspath'], "fm2_train_{}_{}".format(loc1, loc2)), fm2_train)
+            np.save(Path(shunt_params['featuremapspath'], "fm1_test_{}_{}".format(loc1, loc2)), fm1_test)
+            np.save(Path(shunt_params['featuremapspath'], "fm2_test_{}_{}".format(loc1, loc2)), fm2_test)
+
+            logging.info('')
+            logging.info('Featuremaps saved to {}'.format(shunt_params['featuremapspath']))
+
+        if modes['train shunt model']:
+            print('Train shunt model:')
+            history_shunt = model_shunt.fit(x=fm1_train, y=fm2_train, batch_size=batch_size_shunt, epochs=epochs_shunt, validation_data=(fm1_test, fm2_test), verbose=1, callbacks=[callback_checkpoint, callback_learning_rate])
+            save_history_plot(history_shunt, "shunt", folder_name_logging)
+
+        if modes['test shunt model']:
+            print('Test shunt model')
+            val_loss_shunt, _, val_acc_shunt, = model_shunt.evaluate(fm1_test, fm2_test, verbose=1)
+            print('Loss: {:.5f}'.format(val_loss_shunt))
+            print('Accuracy: {:.5f}'.format(val_acc_shunt))
+
+        fm1_test = fm1_train = fm2_test = fm2_train = None
+
 
     model_final = modify_model(model_original, layer_indexes_to_delete=range(loc1, loc2+1), shunt_to_insert=model_shunt) # +1 needed because of the way range works
     
@@ -297,7 +301,6 @@ if __name__ == '__main__':
     epochs_final = epochs_first_cycle_final + epochs_second_cycle_final
     learning_rate_first_cycle_final = training_final_model.getfloat('learning rate first cycle')
     learning_rate_second_cycle_final = training_final_model.getfloat('learning rate second cycle')
-    model_final.compile(loss='categorical_crossentropy', optimizer=keras.optimizers.SGD(lr=learning_rate_first_cycle_final, momentum=0.9, decay=0.0, nesterov=False), metrics=['accuracy'])
     
     logging.info('')
     logging.info('#######################################################################################################')
@@ -306,20 +309,42 @@ if __name__ == '__main__':
     logging.info('')
     model_final.summary(print_fn=logger.info, line_length=150)
 
+    callback_checkpoint = keras.callbacks.ModelCheckpoint(str(Path(folder_name_logging, "final_model_weights.h5")), save_best_only=False, save_weights_only=True)
+    callback_learning_rate = LearningRateSchedulerCallback(epochs_first_cycle=epochs_first_cycle_final, learning_rate_second_cycle=learning_rate_second_cycle_final)
+    callbacks = []
+
+    if final_model_params['finetune strategy'] == 'unfreeze_shunt':
+        callbacks = [callback_checkpoint, callback_learning_rate]
+        for i, layer in enumerate(model_final.layers):
+            if i < loc1 or i > loc1 + len(model_shunt.layers):
+                layer.trainable = False
+
+    if final_model_params['finetune strategy'] == 'unfreeze_after_shunt':
+        callbacks=[callback_checkpoint, callback_learning_rate]
+        for i, layer in enumerate(model_final.layers):
+            if i < loc1 + len(model_shunt.layers):
+                layer.trainable = False
+
+    if final_model_params['finetune strategy'] == 'unfreeze_per_epoch_starting_top':
+        callback_unfreeze = UnfreezeLayersCallback(epochs=epochs_final, epochs_per_unfreeze=2, learning_rate=learning_rate_first_cycle_final, unfreeze_to_index=loc1+len(model_shunt.layers), start_at=len(model_final.layers), direction=-1)
+        callbacks = [callback_checkpoint, callback_unfreeze]
+        for i, layer in enumerate(model_final.layers):
+            layer.trainable = False
+
+    if final_model_params['finetune strategy'] == 'unfreeze_per_epoch_starting_shunt':
+        callback_unfreeze = UnfreezeLayersCallback(epochs=epochs_final, epochs_per_unfreeze=2, learning_rate=learning_rate_first_cycle_final, unfreeze_to_index=loc1+len(model_shunt.layers), start_at=loc1+len(model_shunt.layers)-1, direction=1)
+        # TODO: test this
+        callbacks = [callback_checkpoint, callback_unfreeze]
+        for i, layer in enumerate(model_final.layers):
+            layer.trainable = False
+
+    model_final.compile(loss='categorical_crossentropy', optimizer=keras.optimizers.SGD(lr=learning_rate_first_cycle_final, momentum=0.9, decay=0.0, nesterov=False), metrics=['accuracy'])
+
     print('Test shunt inserted model')
     val_loss_inserted, val_acc_inserted = model_final.evaluate(x_test, y_test, verbose=1)
     print('Loss: {}'.format(val_loss_inserted))
     print('Accuracy: {}'.format(val_acc_inserted))
 
-    callback_checkpoint = keras.callbacks.ModelCheckpoint(str(Path(folder_name_logging, "final_model_weights.h5")), save_best_only=False, save_weights_only=True)
-    callback_unfreeze = UnfreezeLayersCallback(epochs=epochs_final, epochs_per_unfreeze=2, learning_rate=learning_rate_first_cycle_final, unfreeze_to_index=loc1+len(model_shunt.layers))
-    callback_learning_rate = LearningRateSchedulerCallback(epochs_first_cycle=epochs_first_cycle_final, learning_rate_second_cycle=learning_rate_second_cycle_final)
-
-    for i, layer in enumerate(model_final.layers):
-        #if i < loc1 + len(model_shunt.layers):
-        #if i < loc1 or i > loc1 + len(model_shunt.layers):
-        layer.trainable = False
-    model_final.compile(loss='categorical_crossentropy', optimizer=keras.optimizers.SGD(lr=learning_rate_first_cycle_final, momentum=0.9, decay=0.0, nesterov=False), metrics=['accuracy'])
 
     if final_model_params['pretrained']:
         model_final.load_weights(final_model_params['weightspath'])
@@ -332,7 +357,7 @@ if __name__ == '__main__':
 
     if  modes['train final model']:
         print('Train final model:')
-        history_final = model_final.fit(datagen.flow(x_train, y_train, batch_size=batch_size_final), epochs=epochs_final, validation_data=(x_test, y_test), verbose=1, callbacks=[callback_checkpoint, callback_unfreeze])
+        history_final = model_final.fit(datagen.flow(x_train, y_train, batch_size=batch_size_final), epochs=epochs_final, validation_data=(x_test, y_test), verbose=1, callbacks=callbacks)
         save_history_plot(history_final, "final", folder_name_logging)
 
         print('Test final model')
@@ -350,6 +375,7 @@ if __name__ == '__main__':
     logging.info('#######################################################################################################')
     logging.info('')
     logging.info('Original model: loss: {:.5f}, acc: {:.5f}'.format(val_loss_original, val_acc_original))
-    logging.info('Shunt model: loss: {:.5f}, acc: {:.5f}'.format(val_loss_shunt, val_acc_shunt))
+    if modes['test shunt model']:
+        logging.info('Shunt model: loss: {:.5f}, acc: {:.5f}'.format(val_loss_shunt, val_acc_shunt))
     logging.info('Inserted model: loss: {:.5f}, acc: {:.5f}'.format(val_loss_inserted, val_acc_inserted))
     if  modes['train final model']: logging.info('Finetuned model: loss: {:.5f}, acc: {:.5f}'.format(val_loss_finetuned, val_acc_finetuned))

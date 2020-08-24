@@ -11,6 +11,7 @@ if __name__ == '__main__':
                          'calc knowledge quotient': False,
                          'train original model': False,
                          'train shunt model': False,
+                         'test shunt model': False,
                          'train final model': False}
 
     # DATASET
@@ -38,7 +39,9 @@ if __name__ == '__main__':
                                       'epochs second cycle': 100,
                                       'learning rate second cycle': 1e-3}
 
-    config['TRAINING_FINAL_MODEL'] = {'batchsize': 16,
+    config['TRAINING_FINAL_MODEL'] = {'finetune strategy': 'unfreeze_all',
+                                      '# strategies: unfreeze_all, unfreeze_shunt, unfreeze_per_epoch_starting_top, unfreeze_per_epoch_starting_shunt': '',
+                                      'batchsize': 16,
                                       'epochs first cycle': 100,
                                       'learning rate first cycle': 1e-3,
                                       'epochs second cycle': 100,
