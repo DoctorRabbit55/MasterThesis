@@ -12,7 +12,9 @@ if __name__ == '__main__':
                          'train original model': False,
                          'train shunt model': False,
                          'test shunt model': False,
-                         'train final model': False}
+                         'train final model': False,
+                         'test fine-tune strategies': False,
+                         'test latency': False}
 
     # DATASET
     config['DATASET'] = {'name': 'CIFAR10'}

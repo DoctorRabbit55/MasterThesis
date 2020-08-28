@@ -26,6 +26,7 @@ import keras
 
 from matplotlib import pyplot as plt
 
+from sklearn.metrics import classification_report
 
 if __name__ == '__main__':
 
@@ -40,6 +41,8 @@ if __name__ == '__main__':
     modes['train final model'] = config['GENERAL'].getboolean('train final model')
     modes['train shunt model'] = config['GENERAL'].getboolean('train shunt model')
     modes['test shunt model'] = config['GENERAL'].getboolean('test shunt model')
+    modes['test fine-tune strategies'] = config['GENERAL'].getboolean('test fine-tune strategies')
+    modes['test latency'] = config['GENERAL'].getboolean('test latency')
     loglevel = config['GENERAL'].getint('logging level')
 
     dataset_name = config['DATASET']['name']
@@ -293,7 +296,7 @@ if __name__ == '__main__':
 
     reduction = 100*(flops_original['total']-flops_final['total']) / flops_original['total']
     logging.info('')
-    logging.info('Model got reduced by {:.2f}%!'.format(reduction))
+    logging.info('FLOPs got reduced by {:.2f}%!'.format(reduction))
 
     batch_size_final = training_final_model.getint('batchsize')
     epochs_first_cycle_final = training_final_model.getint('epochs first cycle')
@@ -311,32 +314,7 @@ if __name__ == '__main__':
 
     callback_checkpoint = keras.callbacks.ModelCheckpoint(str(Path(folder_name_logging, "final_model_weights.h5")), save_best_only=False, save_weights_only=True)
     callback_learning_rate = LearningRateSchedulerCallback(epochs_first_cycle=epochs_first_cycle_final, learning_rate_second_cycle=learning_rate_second_cycle_final)
-    callbacks = []
-
-    if final_model_params['finetune strategy'] == 'unfreeze_shunt':
-        callbacks = [callback_checkpoint, callback_learning_rate]
-        for i, layer in enumerate(model_final.layers):
-            if i < loc1 or i > loc1 + len(model_shunt.layers):
-                layer.trainable = False
-
-    if final_model_params['finetune strategy'] == 'unfreeze_after_shunt':
-        callbacks=[callback_checkpoint, callback_learning_rate]
-        for i, layer in enumerate(model_final.layers):
-            if i < loc1 + len(model_shunt.layers):
-                layer.trainable = False
-
-    if final_model_params['finetune strategy'] == 'unfreeze_per_epoch_starting_top':
-        callback_unfreeze = UnfreezeLayersCallback(epochs=epochs_final, epochs_per_unfreeze=2, learning_rate=learning_rate_first_cycle_final, unfreeze_to_index=loc1+len(model_shunt.layers), start_at=len(model_final.layers), direction=-1)
-        callbacks = [callback_checkpoint, callback_unfreeze]
-        for i, layer in enumerate(model_final.layers):
-            layer.trainable = False
-
-    if final_model_params['finetune strategy'] == 'unfreeze_per_epoch_starting_shunt':
-        callback_unfreeze = UnfreezeLayersCallback(epochs=epochs_final, epochs_per_unfreeze=2, learning_rate=learning_rate_first_cycle_final, unfreeze_to_index=loc1+len(model_shunt.layers), start_at=loc1+len(model_shunt.layers)-1, direction=1)
-        # TODO: test this
-        callbacks = [callback_checkpoint, callback_unfreeze]
-        for i, layer in enumerate(model_final.layers):
-            layer.trainable = False
+    callbacks = [callback_checkpoint]
 
     model_final.compile(loss='categorical_crossentropy', optimizer=keras.optimizers.SGD(lr=learning_rate_first_cycle_final, momentum=0.9, decay=0.0, nesterov=False), metrics=['accuracy'])
 
@@ -345,37 +323,139 @@ if __name__ == '__main__':
     print('Loss: {}'.format(val_loss_inserted))
     print('Accuracy: {}'.format(val_acc_inserted))
 
+    if modes['test fine-tune strategies']:
 
-    if final_model_params['pretrained']:
-        model_final.load_weights(final_model_params['weightspath'])
-        print('Weights for final model loaded successfully!')
-        print('Test shunt inserted model')
-        val_loss_inserted, val_acc_inserted = model_final.evaluate(x_test, y_test, verbose=1)
-        print('Loss: {}'.format(val_loss_inserted))
-        print('Accuracy: {}'.format(val_acc_inserted))
+        strategies = ['unfreeze_all', 'unfreeze_from_shunt', 'unfreeze_after_shunt']
+
+        logging.info('')
+        logging.info('#######################################################################################################')
+        logging.info('############################################# FINE-TUNING #############################################')
+        logging.info('#######################################################################################################')
+        logging.info('')
+
+        old_weights = model_final.get_weights()
+
+        for strategy in strategies:
+            
+            model_final.set_weights(old_weights)
+
+            for i, layer in enumerate(model_final.layers):
+                if strategy == 'unfreeze_all':
+                    pass
+                elif strategy == 'unfreeze_from_shunt':
+                    if i < loc1:
+                        layer.trainable = False
+                elif strategy == 'unfreeze_after_shunt':
+                    if i < loc1 + len(model_shunt.layers) - 1:
+                        layer.trainable = False
+
+            model_final.compile(loss='categorical_crossentropy', optimizer=keras.optimizers.SGD(lr=learning_rate_first_cycle_final, momentum=0.9, decay=0.0, nesterov=False), metrics=['accuracy'])
+
+            callback_checkpoint = keras.callbacks.ModelCheckpoint(str(Path(folder_name_logging, "final_model_{}_weights.h5".format(strategy))), save_best_only=False, save_weights_only=True)
+            callbacks = [callback_checkpoint]
+
+            print('Train final model with strategy {}:'.format(strategy))
+            train_start = time.process_time()
+            history_final = model_final.fit(datagen.flow(x_train, y_train, batch_size=batch_size_final), epochs=epochs_final, validation_data=(x_test, y_test), verbose=1, callbacks=callbacks)
+            train_stop = time.process_time()
+            save_history_plot(history_final, "final_{}".format(strategy), folder_name_logging)
+
+            print('Test final model with strategy {}:'.format(strategy))
+            val_loss_finetuned, val_acc_finetuned = model_final.evaluate(x_test, y_test, verbose=1)
+            print('Loss: {}'.format(val_loss_finetuned))
+            print('Accuracy: {}'.format(val_acc_finetuned))
+
+            logging.info('')
+            logging.info('{}: loss: {:.5f}, acc: {:.5f}, time: {:.1f} min'.format(strategy, val_loss_finetuned, val_acc_finetuned, (train_stop-train_start)/60))
+
+    else:
+
+        if training_final_model['finetune strategy'] == 'unfreeze_shunt':
+            callbacks.append(callback_learning_rate)
+            for i, layer in enumerate(model_final.layers):
+                if i < loc1 - 1 or i > loc1 + len(model_shunt.layers):
+                    layer.trainable = False
+
+        if training_final_model['finetune strategy'] == 'unfreeze_after_shunt':
+            callbacks.append(callback_learning_rate)
+            for i, layer in enumerate(model_final.layers):
+                if i < loc1 + len(model_shunt.layers) - 1:
+                    model_final.layers[i].trainable = False
 
 
-    if  modes['train final model']:
-        print('Train final model:')
-        history_final = model_final.fit(datagen.flow(x_train, y_train, batch_size=batch_size_final), epochs=epochs_final, validation_data=(x_test, y_test), verbose=1, callbacks=callbacks)
-        save_history_plot(history_final, "final", folder_name_logging)
+        if training_final_model['finetune strategy'] == 'unfreeze_per_epoch_starting_top':
+            callback_unfreeze = UnfreezeLayersCallback(epochs=epochs_final, epochs_per_unfreeze=2, learning_rate=learning_rate_first_cycle_final, unfreeze_to_index=loc1+len(model_shunt.layers), start_at=len(model_final.layers), direction=-1)
+            callbacks.append(callback_unfreeze)
+            for i, layer in enumerate(model_final.layers):
+                layer.trainable = False
 
-        print('Test final model')
-        val_loss_finetuned, val_acc_finetuned = model_final.evaluate(x_test, y_test, verbose=1)
-        print('Loss: {}'.format(val_loss_finetuned))
-        print('Accuracy: {}'.format(val_acc_finetuned))
+        if training_final_model['finetune strategy'] == 'unfreeze_per_epoch_starting_shunt':
+            callback_unfreeze = UnfreezeLayersCallback(epochs=epochs_final, epochs_per_unfreeze=2, learning_rate=learning_rate_first_cycle_final, unfreeze_to_index=0, start_at=loc1+len(model_shunt.layers)-2, direction=1)
+            # TODO: test this
+            callbacks.append(callback_unfreeze)
+            for i, layer in enumerate(model_final.layers):
+                layer.trainable = False
+
+        model_final.compile(loss='categorical_crossentropy', optimizer=keras.optimizers.SGD(lr=learning_rate_first_cycle_final, momentum=0.9, decay=0.0, nesterov=False), metrics=['accuracy'])
+
+        if final_model_params['pretrained']:
+            model_final.load_weights(final_model_params['weightspath'])
+            print('Weights for final model loaded successfully!')
+            print('Test shunt inserted model')
+            val_loss_inserted, val_acc_inserted = model_final.evaluate(x_test, y_test, verbose=1)
+            print('Loss: {}'.format(val_loss_inserted))
+            print('Accuracy: {}'.format(val_acc_inserted))
+
+
+        if  modes['train final model']:
+            print('Train final model:')
+            history_final = model_final.fit(datagen.flow(x_train, y_train, batch_size=batch_size_final), epochs=epochs_final, validation_data=(x_test, y_test), verbose=1, callbacks=callbacks)
+            save_history_plot(history_final, "final", folder_name_logging)
+
+            print('Test final model')
+            val_loss_finetuned, val_acc_finetuned = model_final.evaluate(x_test, y_test, verbose=1)
+            print('Loss: {}'.format(val_loss_finetuned))
+            print('Accuracy: {}'.format(val_acc_finetuned))
 
         model_final.save_weights(str(Path(folder_name_logging, "final_model_weights.h5")))
         logging.info('')
         logging.info('Final model weights saved to {}'.format(folder_name_logging))
 
-    logging.info('')
-    logging.info('#######################################################################################################')
-    logging.info('############################################## ACCURACY ###############################################')
-    logging.info('#######################################################################################################')
-    logging.info('')
-    logging.info('Original model: loss: {:.5f}, acc: {:.5f}'.format(val_loss_original, val_acc_original))
-    if modes['test shunt model']:
-        logging.info('Shunt model: loss: {:.5f}, acc: {:.5f}'.format(val_loss_shunt, val_acc_shunt))
-    logging.info('Inserted model: loss: {:.5f}, acc: {:.5f}'.format(val_loss_inserted, val_acc_inserted))
-    if  modes['train final model']: logging.info('Finetuned model: loss: {:.5f}, acc: {:.5f}'.format(val_loss_finetuned, val_acc_finetuned))
+        logging.info('')
+        logging.info('#######################################################################################################')
+        logging.info('############################################## ACCURACY ###############################################')
+        logging.info('#######################################################################################################')
+        logging.info('')
+        logging.info('Original model: loss: {:.5f}, acc: {:.5f}'.format(val_loss_original, val_acc_original))
+        if modes['test shunt model']:
+            logging.info('Shunt model: loss: {:.5f}, acc: {:.5f}'.format(val_loss_shunt, val_acc_shunt))
+        logging.info('Inserted model: loss: {:.5f}, acc: {:.5f}'.format(val_loss_inserted, val_acc_inserted))
+        if  modes['train final model']: logging.info('Finetuned model: loss: {:.5f}, acc: {:.5f}'.format(val_loss_finetuned, val_acc_finetuned))
+
+        Y_test = np.argmax(y_test, axis=1) # Convert one-hot to index
+        y_pred = np.argmax(model_final.predict(x_test), axis=1)
+        print(classification_report(Y_test, y_pred))
+
+    # latency test
+
+    if modes['test latency']:
+
+        start_original = time.process_time()
+        model_original.predict(x_test, verbose=1, batch_size=1)
+        end_original = time.process_time()
+
+        start_final = time.process_time()
+        model_final.predict(x_test, verbose=1, batch_size=1)
+        end_final = time.process_time()
+
+        time_original = (end_original-start_original)/len(x_test)
+        time_final = (end_final-start_final)/len(x_test)
+
+        logging.info('')
+        logging.info('#######################################################################################################')
+        logging.info('############################################## LATENCY ################################################')
+        logging.info('#######################################################################################################')
+        logging.info('')
+        logging.info('Original model: time: {:.5f}'.format(time_original))
+        logging.info('Final model: time: {:.5f}'.format(time_final))
+        logging.info('Speedup: {:.2f}%'.format((time_original-time_final)/time_original * 100))

@@ -23,11 +23,14 @@ class UnfreezeLayersCallback(Callback):
 
             self.unfreezed_index += self.increment
 
-            if isinstance( self.model.layers[self.unfreezed_index], BatchNormalization):
-                self.unfreezed_index += self.increment
-            
-            self.model.layers[self.unfreezed_index].trainable = True
-            unfreezed.append(self.model.layers[self.unfreezed_index].name)
+            #if isinstance( self.model.layers[self.unfreezed_index], BatchNormalization):
+            #    self.unfreezed_index += self.increment
+
+            try:
+                self.model.layers[self.unfreezed_index].trainable = True
+                unfreezed.append(self.model.layers[self.unfreezed_index].name)
+            except:
+                pass
 
         self.model.compile(loss='categorical_crossentropy', optimizer=SGD(lr=self.learning_rate, momentum=0.9, decay=0.0, nesterov=False), metrics=['accuracy'])
 
