@@ -4,7 +4,8 @@ import logging
 if __name__ == '__main__':
 
 
-    config = configparser.ConfigParser()
+    config = configparser.ConfigParser(allow_no_value=True)
+    config.optionxform=str
 
     # GENERAL
     config['GENERAL'] = {'logging level': logging.INFO,
@@ -17,10 +18,12 @@ if __name__ == '__main__':
                          'test latency': False}
 
     # DATASET
-    config['DATASET'] = {'name': 'CIFAR10'}
+    config['DATASET'] = {'name': 'CIFAR10',
+                         '# names: CIFAR10': None}
 
     # MODEL
     config['MODEL'] = {'type': 'MobileNetV2',
+                       '# types: MobileNetV2, MobileNetV3Small, MobileNetV3Large': None,
                        'from file': False,
                        'filepath': "",
                        'pretrained': False,
@@ -42,7 +45,7 @@ if __name__ == '__main__':
                                       'learning rate second cycle': 1e-3}
 
     config['TRAINING_FINAL_MODEL'] = {'finetune strategy': 'unfreeze_all',
-                                      '# strategies: unfreeze_all, unfreeze_shunt, unfreeze_per_epoch_starting_top, unfreeze_per_epoch_starting_shunt': '',
+                                      '# strategies: unfreeze_all, unfreeze_shunt, unfreeze_per_epoch_starting_top, unfreeze_per_epoch_starting_shunt': None,
                                       'batchsize': 16,
                                       'epochs first cycle': 100,
                                       'learning rate first cycle': 1e-3,
@@ -50,10 +53,8 @@ if __name__ == '__main__':
                                       'learning rate second cycle': 1e-5}
 
     # SHUNT
-    config['SHUNT'] = {'location': '7,12',
+    config['SHUNT'] = {'location': '62,114',
                        'arch': 1,
-                       'input shape': '8,8,64',
-                       'output shape': '8,8,96',
                        'from file': False,
                        'filepath': "",
                        'pretrained': False,

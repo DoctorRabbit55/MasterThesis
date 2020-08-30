@@ -65,8 +65,6 @@ if __name__ == '__main__':
 
     shunt_params = {}
     shunt_params['arch'] = config['SHUNT'].getint('arch')
-    shunt_params['input shape'] = tuple(map(int, config['SHUNT']['input shape'].split(',')))
-    shunt_params['output shape'] = tuple(map(int, config['SHUNT']['output shape'].split(',')))
     shunt_params['locations'] = tuple(map(int, config['SHUNT']['location'].split(',')))
     shunt_params['from_file'] = config['SHUNT'].getboolean('from file')
     shunt_params['filepath'] = config['SHUNT']['filepath']
@@ -115,8 +113,8 @@ if __name__ == '__main__':
 
     if model_type == 'MobileNetV2':
         if load_model_from_file:
-            model_tmp = keras.models.load_model(model_file_path)
-            model_original = create_mobilenet_v2(model_tmp.input, model_tmp.output)
+            model_original = keras.models.load_model(model_file_path)
+            #model_original = create_mobilenet_v2(model_tmp.input, model_tmp.output)
         elif pretrained_on_imagenet:
             model_original = create_mobilenet_v2(is_pretrained=True, num_classes=num_classes, num_change_strides=number_change_stride_layers)
         else:
@@ -203,7 +201,11 @@ if __name__ == '__main__':
         model_shunt = keras.models.load_model(shunt_params['filepath'])
         print('Shunt model loaded successfully!')
     else:
-        model_shunt = Architectures.createShunt(shunt_params['input shape'],shunt_params['output shape'], arch=shunt_params['arch'])
+
+        input_shape_shunt = model_original.get_layer(index=loc1).input_shape[1:]
+        output_shape_shunt = model_original.get_layer(index=loc2).output_shape[1:]
+
+        model_shunt = Architectures.createShunt(input_shape_shunt, output_shape_shunt, arch=shunt_params['arch'])
     
     logging.info('')
     logging.info('#######################################################################################################')
@@ -323,6 +325,14 @@ if __name__ == '__main__':
     print('Loss: {}'.format(val_loss_inserted))
     print('Accuracy: {}'.format(val_acc_inserted))
 
+    if final_model_params['pretrained']:
+        model_final.load_weights(final_model_params['weightspath'])
+        print('Weights for final model loaded successfully!')
+        print('Test shunt inserted model')
+        val_loss_inserted, val_acc_inserted = model_final.evaluate(x_test, y_test, verbose=1)
+        print('Loss: {}'.format(val_loss_inserted))
+        print('Accuracy: {}'.format(val_acc_inserted))
+
     if modes['test fine-tune strategies']:
 
         strategies = ['unfreeze_all', 'unfreeze_from_shunt', 'unfreeze_after_shunt']
@@ -397,15 +407,6 @@ if __name__ == '__main__':
                 layer.trainable = False
 
         model_final.compile(loss='categorical_crossentropy', optimizer=keras.optimizers.SGD(lr=learning_rate_first_cycle_final, momentum=0.9, decay=0.0, nesterov=False), metrics=['accuracy'])
-
-        if final_model_params['pretrained']:
-            model_final.load_weights(final_model_params['weightspath'])
-            print('Weights for final model loaded successfully!')
-            print('Test shunt inserted model')
-            val_loss_inserted, val_acc_inserted = model_final.evaluate(x_test, y_test, verbose=1)
-            print('Loss: {}'.format(val_loss_inserted))
-            print('Accuracy: {}'.format(val_acc_inserted))
-
 
         if  modes['train final model']:
             print('Train final model:')

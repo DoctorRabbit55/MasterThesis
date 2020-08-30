@@ -153,6 +153,29 @@ def extract_feature_maps(model, x_data, locations):
 
     return predictions[:-1]
 
+def add_regularization(model, regularizer=keras.regularizers.l2(4e-5)):
+
+    if not isinstance(regularizer, keras.regularizers.Regularizer):
+      print("Regularizer must be a subclass of tf.keras.regularizers.Regularizer")
+      return model
+
+    for layer in model.layers:
+        for attr in ['kernel_regularizer']:
+            if hasattr(layer, attr):
+              setattr(layer, attr, regularizer)
+
+    # When we change the layers attributes, the change only happens in the model config file
+    model_json = model.to_json()
+
+    # Save the weights before reloading the model.
+    weights_tmp = model.get_weights()
+
+    # load the model from the config
+    model = keras.models.model_from_json(model_json)
+    
+    # Reload the model weights
+    model.set_weights(weights_tmp)
+    return model
 
 class TestIdentifyResidualLayerIndexesMethod(unittest.TestCase):
 
@@ -181,8 +204,16 @@ if __name__ == '__main__':
 
     model = MobileNetV2(weights='imagenet', include_top=True, input_shape=(224,224,3))
     
+    model.compile(loss='categorical_crossentropy', optimizer=keras.optimizers.SGD(lr=0.1, momentum=0.9, decay=0.0), metrics=['accuracy'])
+    print(model.losses)
+    model = add_regularization(model)
+    model.compile(loss='categorical_crossentropy', optimizer=keras.optimizers.SGD(lr=0.1, momentum=0.9, decay=0.0), metrics=['accuracy'])
+    print(model.losses)
+
+    exit()
+
     for i in range(len(model.layers)):
         print(i)
-        print(model.layers[i].name)
+        print(model.layers[i].name)        
 
     unittest.main()
