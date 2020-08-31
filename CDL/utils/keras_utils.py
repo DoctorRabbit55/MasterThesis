@@ -1,11 +1,28 @@
+import tensorflow as tf
 import keras
+import keras.backend as K
+
 from keras.layers import Add, Multiply, Input, Activation
 from keras.layers import deserialize as layer_from_config
 from keras.utils.generic_utils import get_custom_objects
 
 import unittest
+import numpy as np
+from pathlib import Path
+
 from keras.applications import MobileNetV2
-from keras_applications.mobilenet_v3 import MobileNetV3Small
+#from keras_applications.mobilenet_v3 import MobileNetV3Small
+
+def categorical_crossentropy_masked(y_true, y_pred):
+    return K.mean(K.categorical_crossentropy(y_true, y_pred))
+
+class MyMeanIOU(tf.keras.metrics.MeanIoU):
+
+    def update_state(self, y_true, y_pred, sample_weight=None):
+        pred = tf.argmax(y_pred[:,:,:,:21], axis=-1)
+        gt = tf.argmax(y_true[:,:,:,:21], axis=-1)
+        weights = tf.cast(tf.less_equal(y_true, 20), tf.int32)
+        return super().update_state(gt, pred, sample_weight=weights)
 
 class HardSwish(Activation):
 
@@ -152,6 +169,32 @@ def extract_feature_maps(model, x_data, locations):
     predictions = model.predict(x_data, verbose=1)
 
     return predictions[:-1]
+
+def load_segmentation_weights(model, weightspath):
+
+    for layer in model.layers:
+    
+        if isinstance(layer, keras.models.Model):
+            for nested_layer in layer.layers:
+                if nested_layer.weights:
+                    weights = []
+                    for w in nested_layer.weights:
+                        weight_name = w.name.replace(':0', '').split('/')[1]
+                        weight_file = nested_layer.name + '_' + weight_name + '.npy'
+                        weight_arr = np.load(weightspath / weight_file)
+                        weights.append(weight_arr)
+                    nested_layer.set_weights(weights)          
+        else:
+            if layer.weights:
+                weights = []
+                for w in layer.weights:
+                    weight_name = w.name.replace(':0', '').split('/')[1]
+                    weight_file = layer.name + '_' + weight_name + '.npy'
+                    weight_arr = np.load(weightspath / weight_file)
+                    weights.append(weight_arr)
+                layer.set_weights(weights)        
+
+    return model
 
 def add_regularization(model, regularizer=keras.regularizers.l2(4e-5)):
 
