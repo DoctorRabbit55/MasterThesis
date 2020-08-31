@@ -41,23 +41,23 @@ if __name__ == '__main__':
 
     # TRAINING
     config['TRAINING_ORIGINAL_MODEL'] = {'batchsize': 16,
-                                         'epochs first cycle': 100,
+                                         'epochs first cycle': 150,
                                          'learning rate first cycle': 1e-1,
-                                         'epochs second cycle': 100,
+                                         'epochs second cycle': 150,
                                          'learning rate second cycle': 1e-3}
 
     config['TRAINING_SHUNT_MODEL'] = {'batchsize': 64,
-                                      'epochs first cycle': 100,
-                                      'learning rate first cycle': 2e-1,
-                                      'epochs second cycle': 100,
+                                      'epochs first cycle': 50,
+                                      'learning rate first cycle': 1e-1,
+                                      'epochs second cycle': 500,
                                       'learning rate second cycle': 1e-3}
 
     config['TRAINING_FINAL_MODEL'] = {'finetune strategy': 'unfreeze_all',
                                       '# strategies: unfreeze_all, unfreeze_shunt, unfreeze_per_epoch_starting_top, unfreeze_per_epoch_starting_shunt': None,
-                                      'batchsize': 16,
-                                      'epochs first cycle': 100,
+                                      'batchsize': 8,
+                                      'epochs first cycle': 50,
                                       'learning rate first cycle': 1e-3,
-                                      'epochs second cycle': 100,
+                                      'epochs second cycle': 50,
                                       'learning rate second cycle': 1e-5}
 
     # FINAL MODEL
