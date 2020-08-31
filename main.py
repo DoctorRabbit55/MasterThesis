@@ -335,7 +335,7 @@ if __name__ == '__main__':
 
     if modes['test fine-tune strategies']:
 
-        strategies = ['unfreeze_all', 'unfreeze_from_shunt', 'unfreeze_after_shunt']
+        strategies = [ 'unfreeze_after_shunt', 'unfreeze_from_shunt', 'unfreeze_all']
 
         logging.info('')
         logging.info('#######################################################################################################')
@@ -349,6 +349,7 @@ if __name__ == '__main__':
             
             model_final.set_weights(old_weights)
 
+            # unfreeze layers
             for i, layer in enumerate(model_final.layers):
                 if strategy == 'unfreeze_all':
                     pass
@@ -359,7 +360,7 @@ if __name__ == '__main__':
                     if i < loc1 + len(model_shunt.layers) - 1:
                         layer.trainable = False
 
-            model_final.compile(loss='categorical_crossentropy', optimizer=keras.optimizers.SGD(lr=learning_rate_first_cycle_final, momentum=0.9, decay=0.0, nesterov=False), metrics=['accuracy'])
+            model_final.compile(loss='categorical_crossentropy', optimizer=keras.optimizers.SGD(lr=learning_rate_first_cycle_final, momentum=0.9, decay=0.0, nesterov=False), metrics=[keras.metrics.categorical_crossentropy, 'accuracy'])
 
             callback_checkpoint = keras.callbacks.ModelCheckpoint(str(Path(folder_name_logging, "final_model_{}_weights.h5".format(strategy))), save_best_only=False, save_weights_only=True)
             callbacks = [callback_checkpoint]

@@ -4,12 +4,13 @@ from __future__ import division
 
 import tensorflow as tf
 
-from keras.layers import Input, UpSampling2D, GlobalAveragePooling2D, Dense, Conv2D, BatchNormalization, ReLU, DepthwiseConv2D, InputLayer, Add
+from keras.layers import Input, UpSampling2D, GlobalAveragePooling2D, Dense, Conv2D, BatchNormalization, ReLU, DepthwiseConv2D, InputLayer, Add, Dropout
 from keras import Model
 import keras
 from keras.layers import deserialize as layer_from_config
 from keras.optimizers import SGD
 from keras.preprocessing.image import ImageDataGenerator
+from ..utils.keras_utils import add_regularization
 
 import numpy as np
 
@@ -92,7 +93,7 @@ def create_mobilenet_v2(input_shape=(32,32,3), num_classes=10, is_pretrained=Fal
         else:
             x = input_net
 
-        for layer in mobilenet.layers[1:]:
+        for layer in mobilenet.layers[1:-1]:
 
             config = layer.get_config()
 
@@ -108,6 +109,9 @@ def create_mobilenet_v2(input_shape=(32,32,3), num_classes=10, is_pretrained=Fal
 
             next_layer = layer_from_config({'class_name': layer.__class__.__name__, 'config': config})
 
+            if layer.name == 'Conv_1' or layer.name == 'expanded_conv_16_project':
+                x = Dropout(rate=0.5)(x)
+
             if isinstance(layer, Add):
                 x = next_layer([x, output_residual.get()])
             else:
@@ -122,7 +126,10 @@ def create_mobilenet_v2(input_shape=(32,32,3), num_classes=10, is_pretrained=Fal
                     output_residual.get()
                 output_residual.put(x)
 
-        return Model(inputs=input_net, outputs=x, name='mobilenetv2')
+        x = Dropout(rate=0.25)(x)
+        x = Dense(num_classes, activation='softmax')(x)
+
+        return add_regularization(Model(inputs=input_net, outputs=x, name='mobilenetv2'))
 
 
 """MobileNet v2 models for Keras.
