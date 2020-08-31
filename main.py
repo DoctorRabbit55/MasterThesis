@@ -333,7 +333,7 @@ if __name__ == '__main__':
         print('Test shunt inserted model with loaded weights')
         val_loss_inserted, val_entropy_inserted, val_acc_inserted = model_final.evaluate(x_test, y_test, verbose=1)
         print('Loss: {:.5f}'.format(val_loss_inserted))
-        print('Entropy: {:.5f}').format(val_entropy_inserted)
+        print('Entropy: {:.5f}'.format(val_entropy_inserted))
         print('Accuracy: {:.4f}'.format(val_acc_inserted))
     if modes['test fine-tune strategies']:
 
