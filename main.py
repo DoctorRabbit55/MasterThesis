@@ -9,7 +9,7 @@ from pathlib import Path
 import numpy as np
 
 from CDL.models.MobileNet_v2 import create_mobilenet_v2
-from CDL.models.MobileNet_v3 import MobileNetV3_extended
+#from CDL.models.MobileNet_v3 import MobileNetV3_extended
 from CDL.shunt import Architectures
 from CDL.utils.calculateFLOPS import calculateFLOPs_model, calculateFLOPs_blocks
 from CDL.utils.dataset_utils import *
@@ -447,6 +447,10 @@ if __name__ == '__main__':
 
         original_list = []
         final_list = []
+
+        # warmup
+        model_original.predict(x_test, verbose=1, batch_size=1)
+        model_final.predict(x_test, verbose=1, batch_size=1)
 
         for i in range(5):
 

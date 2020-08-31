@@ -1,3 +1,11 @@
+# Prerequisits
+
+ - tensorflow
+ - keras
+ - keras_applications
+ - sklearn
+ - matplotlib
+
 # Understanding the cfg file
 
 ## Classification
