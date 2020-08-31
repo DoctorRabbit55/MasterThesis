@@ -32,6 +32,6 @@ You can specify different options for the training of the original model, the sh
 
 For the final model, a fine-tune strategy must also be choosen.
 
-## Final Model
+### Final Model
 
 You can also load pretrained weights for the final model.

@@ -444,16 +444,44 @@ if __name__ == '__main__':
 
     if modes['test latency']:
 
-        start_original = time.process_time()
-        model_original.predict(x_test, verbose=1, batch_size=1)
-        end_original = time.process_time()
+        original_list = []
+        final_list = []
 
-        start_final = time.process_time()
-        model_final.predict(x_test, verbose=1, batch_size=1)
-        end_final = time.process_time()
+        for i in range(5):
 
-        time_original = (end_original-start_original)/len(x_test)
-        time_final = (end_final-start_final)/len(x_test)
+            start_original = time.process_time()
+            model_original.predict(x_test, verbose=1, batch_size=1)
+            end_original = time.process_time()
+
+            start_final = time.process_time()
+            model_final.predict(x_test, verbose=1, batch_size=1)
+            end_final = time.process_time()
+
+            time_original = (end_original-start_original)/len(x_test)
+            time_final = (end_final-start_final)/len(x_test)
+
+            original_list.append(time_original)
+            final_list.append(final_list)
+
+        for i in range(5):
+
+            start_final = time.process_time()
+            model_final.predict(x_test, verbose=1, batch_size=1)
+            end_final = time.process_time()
+
+
+            start_original = time.process_time()
+            model_original.predict(x_test, verbose=1, batch_size=1)
+            end_original = time.process_time()
+
+            time_original = (end_original-start_original)/len(x_test)
+            time_final = (end_final-start_final)/len(x_test)
+
+            original_list.append(time_original)
+            final_list.append(final_list)
+
+        time_original = np.mean(original_list)
+        time_final = np.mean(final_list)
 
         logging.info('')
         logging.info('#######################################################################################################')
