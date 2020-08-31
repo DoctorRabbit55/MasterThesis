@@ -374,9 +374,10 @@ if __name__ == '__main__':
             save_history_plot(history_final, "final_{}".format(strategy), folder_name_logging)
 
             print('Test final model with strategy {}:'.format(strategy))
-            val_loss_finetuned, val_acc_finetuned = model_final.evaluate(x_test, y_test, verbose=1)
-            print('Loss: {}'.format(val_loss_finetuned))
-            print('Accuracy: {}'.format(val_acc_finetuned))
+            val_loss_finetuned, val_entropy_finetuned, val_acc_finetuned = model_final.evaluate(x_test, y_test, verbose=1)
+            print('Loss: {:.5f}'.format(val_loss_finetuned))
+            print('Entropy: {:.5f}'.format(val_entropy_inserted))
+            print('Accuracy: {:.4f}'.format(val_acc_finetuned))
 
             logging.info('')
             logging.info('{}: loss: {:.5f}, acc: {:.5f}, time: {:.1f} min'.format(strategy, val_loss_finetuned, val_acc_finetuned, (train_stop-train_start)/60))
