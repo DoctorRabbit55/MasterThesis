@@ -36,14 +36,14 @@ if __name__ == '__main__':
     config.read(config_path)
 
     modes = {}
-    modes['calc knowledge quotient'] = config['GENERAL'].getboolean('calc knowledge quotient')
+    modes['calc knowledge quotients'] = config['GENERAL'].getboolean('calc knowledge quotients')
     modes['train original model'] = config['GENERAL'].getboolean('train original model')
     modes['train final model'] = config['GENERAL'].getboolean('train final model')
     modes['train shunt model'] = config['GENERAL'].getboolean('train shunt model')
     modes['test shunt model'] = config['GENERAL'].getboolean('test shunt model')
     modes['test fine-tune strategies'] = config['GENERAL'].getboolean('test fine-tune strategies')
     modes['test latency'] = config['GENERAL'].getboolean('test latency')
-    loglevel = config['GENERAL'].getint('logging level')
+    loglevel = 20
 
     dataset_name = config['DATASET']['name']
 
@@ -153,7 +153,7 @@ if __name__ == '__main__':
     learning_rate_first_cycle_original = training_original_model.getfloat('learning rate first cycle')
     learning_rate_second_cycle_original = training_original_model.getfloat('learning rate second cycle')
 
-    model_original.compile(loss='categorical_crossentropy', optimizer=keras.optimizers.SGD(lr=learning_rate_first_cycle_original, momentum=0.9, decay=0.0), metrics=['accuracy'])
+    model_original.compile(loss='categorical_crossentropy', optimizer=keras.optimizers.SGD(lr=learning_rate_first_cycle_original, momentum=0.9, decay=0.0), metrics=[keras.metrics.categorical_crossentropy, 'accuracy'])
 
     logging.info('')
     logging.info('#######################################################################################################')
@@ -176,11 +176,12 @@ if __name__ == '__main__':
 
     # test original model
     print('Test original model')
-    val_loss_original, val_acc_original = model_original.evaluate(x_test, y_test, verbose=1)
-    print('Loss: {}'.format(val_loss_original))
-    print('Accuracy: {}'.format(val_acc_original))
+    val_loss_original, val_entropy_original, val_acc_original = model_original.evaluate(x_test, y_test, verbose=1)
+    print('Loss: {:.5f}'.format(val_loss_original))
+    print('Entropy: {:.5f}'.format(val_entropy_original))
+    print('Accuracy: {:.4f}'.format(val_acc_original))
 
-    if modes['calc knowledge quotient']:
+    if modes['calc knowledge quotients']:
         know_quot = get_knowledge_quotients(model=model_original, data=(x_test, y_test), val_acc_model=val_acc_original)
         logging.info('')
         logging.info('################# RESULT ###################')
@@ -231,7 +232,7 @@ if __name__ == '__main__':
     learning_rate_first_cycle_shunt = training_shunt_model.getfloat('learning rate first cycle')
     learning_rate_second_cycle_shunt = training_shunt_model.getfloat('learning rate second cycle')
 
-    model_shunt.compile(loss=keras.losses.mean_squared_error, optimizer=keras.optimizers.Adam(learning_rate=learning_rate_first_cycle_shunt, decay=0.0), metrics=[keras.metrics.MeanSquaredError(), 'accuracy'])
+    model_shunt.compile(loss=keras.losses.mean_squared_error, optimizer=keras.optimizers.Adam(learning_rate=learning_rate_first_cycle_shunt, decay=0.0), metrics=[keras.metrics.MeanSquaredError()])
 
     callback_checkpoint = keras.callbacks.ModelCheckpoint(str(Path(folder_name_logging, "shunt_model_weights.h5")), save_best_only=False, save_weights_only=True)
     callback_learning_rate = LearningRateSchedulerCallback(epochs_first_cycle=epochs_first_cycle_shunt, learning_rate_second_cycle=learning_rate_second_cycle_shunt)
@@ -271,7 +272,7 @@ if __name__ == '__main__':
 
         if modes['test shunt model']:
             print('Test shunt model')
-            val_loss_shunt, _, val_acc_shunt, = model_shunt.evaluate(fm1_test, fm2_test, verbose=1)
+            val_loss_shunt, val_acc_shunt, = model_shunt.evaluate(fm1_test, fm2_test, verbose=1)
             print('Loss: {:.5f}'.format(val_loss_shunt))
             print('Accuracy: {:.5f}'.format(val_acc_shunt))
 
@@ -318,21 +319,22 @@ if __name__ == '__main__':
     callback_learning_rate = LearningRateSchedulerCallback(epochs_first_cycle=epochs_first_cycle_final, learning_rate_second_cycle=learning_rate_second_cycle_final)
     callbacks = [callback_checkpoint]
 
-    model_final.compile(loss='categorical_crossentropy', optimizer=keras.optimizers.SGD(lr=learning_rate_first_cycle_final, momentum=0.9, decay=0.0, nesterov=False), metrics=['accuracy'])
+    model_final.compile(loss='categorical_crossentropy', optimizer=keras.optimizers.SGD(lr=learning_rate_first_cycle_final, momentum=0.9, decay=0.0, nesterov=False), metrics=[keras.metrics.categorical_crossentropy, 'accuracy'])
 
     print('Test shunt inserted model')
-    val_loss_inserted, val_acc_inserted = model_final.evaluate(x_test, y_test, verbose=1)
-    print('Loss: {}'.format(val_loss_inserted))
-    print('Accuracy: {}'.format(val_acc_inserted))
+    val_loss_inserted, val_entropy_inserted, val_acc_inserted = model_final.evaluate(x_test, y_test, verbose=1)
+    print('Loss: {:.5f}'.format(val_loss_inserted))
+    print('Entropy: {:.5f}'.format(val_entropy_inserted))
+    print('Accuracy: {:.4f}'.format(val_acc_inserted))
 
     if final_model_params['pretrained']:
         model_final.load_weights(final_model_params['weightspath'])
         print('Weights for final model loaded successfully!')
-        print('Test shunt inserted model')
-        val_loss_inserted, val_acc_inserted = model_final.evaluate(x_test, y_test, verbose=1)
-        print('Loss: {}'.format(val_loss_inserted))
-        print('Accuracy: {}'.format(val_acc_inserted))
-
+        print('Test shunt inserted model with loaded weights')
+        val_loss_inserted, val_entropy_inserted, val_acc_inserted = model_final.evaluate(x_test, y_test, verbose=1)
+        print('Loss: {:.5f}'.format(val_loss_inserted))
+        print('Entropy: {:.5f}').format(val_entropy_inserted)
+        print('Accuracy: {:.4f}'.format(val_acc_inserted))
     if modes['test fine-tune strategies']:
 
         strategies = [ 'unfreeze_after_shunt', 'unfreeze_from_shunt', 'unfreeze_all']

@@ -8,9 +8,8 @@ if __name__ == '__main__':
     config.optionxform=str
 
     # GENERAL
-    config['GENERAL'] = {'logging level': logging.INFO,
+    config['GENERAL'] = {'train original model': False,
                          'calc knowledge quotient': False,
-                         'train original model': False,
                          'train shunt model': False,
                          'test shunt model': False,
                          'train final model': False,
@@ -30,6 +29,15 @@ if __name__ == '__main__':
                        'weightspath': "",
                        'scale up input': False,
                        'change stride layers': 2}
+
+    # SHUNT
+    config['SHUNT'] = {'location': '62,114',
+                       'arch': 1,
+                       'from file': False,
+                       'filepath': "",
+                       'pretrained': False,
+                       'weightspath': "",
+                       'featuremapspath': ""}
 
     # TRAINING
     config['TRAINING_ORIGINAL_MODEL'] = {'batchsize': 16,
@@ -51,16 +59,6 @@ if __name__ == '__main__':
                                       'learning rate first cycle': 1e-3,
                                       'epochs second cycle': 100,
                                       'learning rate second cycle': 1e-5}
-
-    # SHUNT
-    config['SHUNT'] = {'location': '62,114',
-                       'arch': 1,
-                       'from file': False,
-                       'filepath': "",
-                       'pretrained': False,
-                       'weightspath': "",
-                       'featuremapspath': ""}
-
 
     # FINAL MODEL
     config['FINAL_MODEL'] = {'pretrained': False,
