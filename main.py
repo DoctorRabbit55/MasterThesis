@@ -477,12 +477,11 @@ if __name__ == '__main__':
         original_list = []
         final_list = []
 
-        '''
         # warmup
         model_original.predict(x_test, verbose=1, batch_size=1)
         model_final.predict(x_test, verbose=1, batch_size=1)
 
-        for i in range(3):
+        for i in range(5):
 
             start_original = time.process_time()
             model_original.predict(x_test, verbose=1, batch_size=1)
@@ -497,8 +496,8 @@ if __name__ == '__main__':
 
             original_list.append(time_original)
             final_list.append(final_list)
-        '''
-        for i in range(2):
+    
+        for i in range(5):
 
             start_final = time.process_time()
             model_final.predict(x_test, verbose=1, batch_size=1)
