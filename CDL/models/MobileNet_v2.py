@@ -25,60 +25,9 @@ def create_mobilenet_v2(input_shape=(32,32,3), num_classes=10, is_pretrained=Fal
 
     if is_pretrained:
     
-        mobilenet = MobileNetV2(input_shape=mobilenet_shape, include_top=False, alpha=1.0, weights='imagenet')
+        mobilenet = MobileNetV2(input_shape=mobilenet_shape, include_top=True, alpha=1.0, weights='imagenet')
 
-        output_residual = queue.Queue(2)
-
-        for layer in mobilenet.layers:
-            layer.trainable = False
-
-        input_net = Input(input_shape)
-        scale_factor = 224 // input_shape[0]
-        x = UpSampling2D((scale_factor, scale_factor))(input_net)
-
-        for layer in mobilenet.layers[1:]:
-
-            config = layer.get_config()
-            
-            # check if stride has to be changed
-            if num_change_strides > 0:
-                if layer.__class__ == keras.layers.ZeroPadding2D:
-                    continue
-                if 'strides' in config.keys():
-                    if config['strides'] == (2,2):
-                        config['strides'] = (1,1)
-                        num_change_strides -= 1 
-            next_layer = layer_from_config({'class_name': layer.__class__.__name__, 'config': config})
-
-            if isinstance(layer, Add):
-                x = next_layer([x, output_residual.get()])
-            else:
-                x = next_layer(x)
-            
-            if "block_" in layer.name and "_project_BN" in layer.name:
-                if output_residual.full():
-                    output_residual.get()
-                output_residual.put(x)
-            if "block_" in layer.name and "_add" in layer.name:
-                if output_residual.full():
-                    output_residual.get()
-                output_residual.put(x)
-
-
-        model_reduced = Model(input_net, x)
-
-        for j in range(2,len(model_reduced.layers)):
-            layer = model_reduced.layers[j]
-            weights = mobilenet.get_layer(name=layer.name).get_weights()
-            if len(weights) > 0:
-                model_reduced.layers[j].set_weights(weights)
-
-        x = GlobalAveragePooling2D()(x)
-        x = Dense(1024, activation='relu')(x)
-        x = Dense(512, activation='relu')(x)
-        preds = Dense(num_classes, activation='softmax')(x)
-
-        return Model(inputs=input_net, outputs=preds, name='mobilenetv2')
+        return add_regularization(mobilenet)
 
     else:
         mobilenet = MobileNetV2(input_shape=mobilenet_shape, include_top=True, weights=None, classes=num_classes, output_stride=None, backend=keras.backend, layers=keras.layers, models=keras.models, utils=keras.utils)
@@ -109,9 +58,6 @@ def create_mobilenet_v2(input_shape=(32,32,3), num_classes=10, is_pretrained=Fal
 
             next_layer = layer_from_config({'class_name': layer.__class__.__name__, 'config': config})
 
-            if layer.name == 'Conv_1' or layer.name == 'expanded_conv_16_project':
-                x = Dropout(rate=0.5)(x)
-
             if isinstance(layer, Add):
                 x = next_layer([x, output_residual.get()])
             else:
@@ -126,7 +72,7 @@ def create_mobilenet_v2(input_shape=(32,32,3), num_classes=10, is_pretrained=Fal
                     output_residual.get()
                 output_residual.put(x)
 
-        x = Dropout(rate=0.25)(x)
+        x = Dropout(rate=0.2)(x)
         x = Dense(num_classes, activation='softmax')(x)
 
         return add_regularization(Model(inputs=input_net, outputs=x, name='mobilenetv2'))

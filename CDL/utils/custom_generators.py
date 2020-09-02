@@ -1,5 +1,6 @@
 from keras.utils import Sequence
 
+from pathlib import Path
 import numpy as np
 import cv2
 
@@ -40,11 +41,11 @@ class VOC2012_generator(Sequence):
 
         for i, id in enumerate(batch):
 
-            X[i,:,:,:] = np.array(cv2.imread(self.x_dir + "/" + self.file_names[id] + ".jpg"))
+            X[i,:,:,:] = np.array(cv2.imread(str(self.x_dir / (self.file_names[id] + ".jpg"))))
             X[i,:,:,:] = X[i,:,:,:] / 127.5 - 1
         
             #y[i,:,:] = np.array(cv2.imread(self.y_dir + "/" + self.file_names[id] + ".png"))
-            label = np.array(cv2.imread(self.y_dir + "/" + self.file_names[id] + ".png"))
+            label = np.array(cv2.imread(str(self.y_dir / (self.file_names[id] + ".png"))))
 
             for j, unique_value in enumerate(np.unique(label)):
                 if unique_value == 255:

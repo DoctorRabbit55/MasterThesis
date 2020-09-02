@@ -9,7 +9,7 @@ from pathlib import Path
 import numpy as np
 
 from CDL.models.MobileNet_v2 import create_mobilenet_v2
-#from CDL.models.MobileNet_v3 import MobileNetV3_extended
+from CDL.models.MobileNet_v3 import MobileNetV3_extended
 from CDL.shunt import Architectures
 from CDL.utils.calculateFLOPS import calculateFLOPs_model, calculateFLOPs_blocks
 from CDL.utils.dataset_utils import *
@@ -46,6 +46,7 @@ if __name__ == '__main__':
     loglevel = 20
 
     dataset_name = config['DATASET']['name']
+    dataset_path = config['DATASET']['path']
 
     model_type = config['MODEL']['type']
     number_change_stride_layers = config['MODEL'].getint('change stride layers')
@@ -53,8 +54,8 @@ if __name__ == '__main__':
     if (load_model_from_file):
         model_file_path = config['MODEL']['filepath']
     else:
-        pretrained_on_imagenet = config['MODEL'].getboolean('pretrained on imagenet')
         scale_to_imagenet = config['MODEL'].getboolean('scale to imagenet')
+    input_image_size = config['MODEL'].getint('input image size')
     pretrained = config['MODEL'].getboolean('pretrained')
     if pretrained:
         weights_file_path = config['MODEL']['weightspath']
@@ -86,6 +87,7 @@ if __name__ == '__main__':
     # prepare data
     x_train = y_train = x_test = y_test = None
     datagen = None
+    flow_from_directory = False
     input_shape = None
 
     copyfile(config_path, Path(folder_name_logging, "config.cfg"))
@@ -106,7 +108,24 @@ if __name__ == '__main__':
             horizontal_flip=True)
         datagen.fit(x_train)
 
+        flow_from_directory = False
+
         print('CIFAR10 was loaded successfully!')
+
+
+    if dataset_name == 'imagenet':
+
+        datagen = ImageDataGenerator(
+            rotation_range=0.0,
+            width_shift_range=0.2,
+            height_shift_range=0.2,
+            vertical_flip=False,
+            horizontal_flip=True,
+            preprocessing_function=keras.applications.imagenet_utils.preprocess_input)
+
+        flow_from_directory = True
+
+        print('Imagenet was loaded successfully!')
 
     # load/create model
     model_original = None
@@ -114,14 +133,8 @@ if __name__ == '__main__':
     if model_type == 'MobileNetV2':
         if load_model_from_file:
             model_original = keras.models.load_model(model_file_path)
-            #model_original = create_mobilenet_v2(model_tmp.input, model_tmp.output)
-        elif pretrained_on_imagenet:
-            model_original = create_mobilenet_v2(is_pretrained=True, num_classes=num_classes, num_change_strides=number_change_stride_layers)
         else:
-            if scale_to_imagenet:
-                model_original = create_mobilenet_v2(is_pretrained=False, num_classes=num_classes, input_shape=input_shape, mobilenet_shape=(224,224,3), num_change_strides=number_change_stride_layers)
-            else:
-                model_original = create_mobilenet_v2(is_pretrained=False, num_classes=num_classes, input_shape=input_shape, mobilenet_shape=(32,32,3), num_change_strides=number_change_stride_layers)
+            model_original = create_mobilenet_v2(is_pretrained=False, num_classes=num_classes, input_shape=input_shape, mobilenet_shape=(input_image_size,input_image_size,3), num_change_strides=number_change_stride_layers)
 
 
     if 'MobileNetV3' in model_type:
@@ -133,13 +146,8 @@ if __name__ == '__main__':
         if load_model_from_file:
             model_tmp = keras.models.load_model(model_file_path)
             model_original = MobileNetV3_extended(model_tmp.input, model_tmp.output)
-        elif pretrained_on_imagenet:
-            model_original = MobileNetV3_extended.create(is_pretrained=True, num_classes=num_classes, is_small=is_small)
         else:
-            if scale_to_imagenet:
-                model_original = MobileNetV3_extended.create(is_pretrained=False, num_classes=num_classes, is_small=is_small, input_shape=input_shape, mobilenet_shape=(224,224,3))
-            else:
-                model_original = MobileNetV3_extended.create(is_pretrained=False, num_classes=num_classes, is_small=is_small, input_shape=input_shape, mobilenet_shape=(32,32,3))
+            model_original = MobileNetV3_extended.create(is_pretrained=False, num_classes=num_classes, is_small=is_small, input_shape=input_shape, mobilenet_shape=(input_image_size,input_image_size,3))
 
     if pretrained:
         model_original.load_weights(weights_file_path)
@@ -170,13 +178,19 @@ if __name__ == '__main__':
 
     if modes['train original model']:
         print('Train original model:')
-        history_original = model_original.fit(datagen.flow(x_train, y_train, batch_size=batch_size_original), epochs=epochs_original, validation_data=(x_test, y_test), verbose=1, callbacks=[callback_checkpoint, callback_learning_rate])
+        if flow_from_directory:
+            history_original = model_original.fit(datagen.flow_from_directory(dataset_path, batch_size=batch_size_original), epochs=epochs_original, validation_data=(x_test, y_test), verbose=1, callbacks=[callback_checkpoint, callback_learning_rate])
+        else:
+            history_original = model_original.fit(datagen.flow(x_train, y_train, batch_size=batch_size_original), epochs=epochs_original, validation_data=(x_test, y_test), verbose=1, callbacks=[callback_checkpoint, callback_learning_rate])
         model_original.save_weights(str(Path(folder_name_logging, "original_model_weights.h5")))
         save_history_plot(history_original, "original", folder_name_logging)
 
     # test original model
     print('Test original model')
-    val_loss_original, val_entropy_original, val_acc_original = model_original.evaluate(x_test, y_test, verbose=1)
+    if flow_from_directory:
+        val_loss_original, val_entropy_original, val_acc_original = model_original.evaluate(datagen.flow_from_directory(dataset_path), verbose=1)
+    else:
+        val_loss_original, val_entropy_original, val_acc_original = model_original.evaluate(x_test, y_test, verbose=1)
     print('Loss: {:.5f}'.format(val_loss_original))
     print('Entropy: {:.5f}'.format(val_entropy_original))
     print('Accuracy: {:.4f}'.format(val_acc_original))
@@ -268,6 +282,7 @@ if __name__ == '__main__':
         if modes['train shunt model']:
             print('Train shunt model:')
             history_shunt = model_shunt.fit(x=fm1_train, y=fm2_train, batch_size=batch_size_shunt, epochs=epochs_shunt, validation_data=(fm1_test, fm2_test), verbose=1, callbacks=[callback_checkpoint, callback_learning_rate])
+            history_shunt = model_shunt.fit(x=fm1_train, y=fm2_train, batch_size=batch_size_shunt, epochs=epochs_shunt, validation_data=(fm1_test, fm2_test), verbose=1, callbacks=[callback_checkpoint, callback_learning_rate])
             save_history_plot(history_shunt, "shunt", folder_name_logging)
 
         if modes['test shunt model']:
@@ -335,6 +350,7 @@ if __name__ == '__main__':
         print('Loss: {:.5f}'.format(val_loss_inserted))
         print('Entropy: {:.5f}'.format(val_entropy_inserted))
         print('Accuracy: {:.4f}'.format(val_acc_inserted))
+        
     if modes['test fine-tune strategies']:
 
         strategies = [ 'unfreeze_after_shunt', 'unfreeze_from_shunt', 'unfreeze_all']
@@ -452,7 +468,7 @@ if __name__ == '__main__':
         model_original.predict(x_test, verbose=1, batch_size=1)
         model_final.predict(x_test, verbose=1, batch_size=1)
 
-        for i in range(5):
+        for i in range(3):
 
             start_original = time.process_time()
             model_original.predict(x_test, verbose=1, batch_size=1)
@@ -468,7 +484,7 @@ if __name__ == '__main__':
             original_list.append(time_original)
             final_list.append(final_list)
 
-        for i in range(5):
+        for i in range(3):
 
             start_final = time.process_time()
             model_final.predict(x_test, verbose=1, batch_size=1)
@@ -485,8 +501,8 @@ if __name__ == '__main__':
             original_list.append(time_original)
             final_list.append(final_list)
 
-        time_original = np.mean(original_list)
-        time_final = np.mean(final_list)
+        time_original = np.mean(np.asarray(original_list))
+        time_final = np.mean(np.asarray(final_list))
 
         logging.info('')
         logging.info('#######################################################################################################')
