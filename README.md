@@ -6,6 +6,22 @@
  - sklearn
  - matplotlib
 
+# User params
+
+By providing additional parameters for the program, you can overwrite parameters of the config file. For each parameter, use following pattern: SECTION#parameter#value.
+
+An example: if you would like to change the learning rate of the original model through the terminal, because you want to submit multiply jobs with different learning rates, you would type:
+
+```console
+python main.py TRAINING_ORIGINAL_MODEL#learning_rate_first_cycle#0.001
+```
+
+If you want to change batchsize as well:
+
+```console
+python main.py TRAINING_ORIGINAL_MODEL#learning_rate_first_cycle#0.001 TRAINING_ORIGINAL_MODEL#batchsize#64
+```
+
 # Understanding the cfg file
 
 ## Classification

@@ -13,13 +13,13 @@ if __name__ == '__main__':
         config.optionxform=str
 
         # GENERAL
-        config['GENERAL'] = {'train original model': False,
-                            'calc knowledge quotient': False,
-                            'train shunt model': False,
-                            'test shunt model': False,
-                            'train final model': False,
-                            'test fine-tune strategies': False,
-                            'test latency': False}
+        config['GENERAL'] = {'train_original_model': False,
+                            'calc_knowledge_quotient': False,
+                            'train_shunt_model': False,
+                            'test_shunt_model': False,
+                            'train_final_model': False,
+                            'test_fine-tune_strategies': False,
+                            'test_latency': False}
 
         # DATASET
         config['DATASET'] = {'name': 'CIFAR10',
@@ -29,12 +29,12 @@ if __name__ == '__main__':
         # MODEL
         config['MODEL'] = {'type': 'MobileNetV2',
                         '# types: MobileNetV2, MobileNetV3Small, MobileNetV3Large': None,
-                        'from file': False,
+                        'from_file': False,
                         'filepath': "",
                         'pretrained': False,
                         'weightspath': "",
-                        'input image size': 32,
-                        'change stride layers': 2}
+                        'input_image_size': 32,
+                        'change_stride_layers': 2}
 
         # SHUNT
         config['SHUNT'] = {'location': '62,114',
@@ -47,24 +47,24 @@ if __name__ == '__main__':
 
         # TRAINING
         config['TRAINING_ORIGINAL_MODEL'] = {'batchsize': 16,
-                                            'epochs first cycle': 150,
-                                            'learning rate first cycle': 1e-1,
-                                            'epochs second cycle': 150,
-                                            'learning rate second cycle': 1e-3}
+                                            'epochs_first_cycle': 150,
+                                            'learning_rate_first_cycle': 1e-1,
+                                            'epochs_second_cycle': 150,
+                                            'learning_rate_second_cycle': 1e-3}
 
         config['TRAINING_SHUNT_MODEL'] = {'batchsize': 64,
-                                        'epochs first cycle': 50,
-                                        'learning rate first cycle': 1e-1,
-                                        'epochs second cycle': 500,
-                                        'learning rate second cycle': 1e-3}
+                                        'epochs_first_cycle': 50,
+                                        'learning_rate_first_cycle': 1e-1,
+                                        'epochs_second_cycle': 500,
+                                        'learning_rate_second_cycle': 1e-3}
 
-        config['TRAINING_FINAL_MODEL'] = {'finetune strategy': 'unfreeze_all',
+        config['TRAINING_FINAL_MODEL'] = {'finetune_strategy': 'unfreeze_all',
                                         '# strategies: unfreeze_all, unfreeze_shunt, unfreeze_per_epoch_starting_top, unfreeze_per_epoch_starting_shunt': None,
                                         'batchsize': 8,
-                                        'epochs first cycle': 50,
-                                        'learning rate first cycle': 1e-3,
-                                        'epochs second cycle': 50,
-                                        'learning rate second cycle': 1e-5}
+                                        'epochs_first_cycle': 50,
+                                        'learning_rate_first_cycle': 1e-3,
+                                        'epochs_second_cycle': 50,
+                                        'learning_rate_second_cycle': 1e-5}
 
         # FINAL MODEL
         config['FINAL_MODEL'] = {'pretrained': False,
@@ -79,13 +79,13 @@ if __name__ == '__main__':
         config.optionxform=str
 
         # GENERAL
-        config['GENERAL'] = {'train original model': False,
-                            'calc knowledge quotient': False,
-                            'train shunt model': False,
-                            'test shunt model': False,
-                            'train final model': False,
-                            'test fine-tune strategies': False,
-                            'test latency': False}
+        config['GENERAL'] = {'train_original_model': False,
+                            'calc_knowledge_quotient': False,
+                            'train_shunt_model': False,
+                            'test_shunt_model': False,
+                            'train_final_model': False,
+                            'test_fine-tune_strategies': False,
+                            'test_latency': False}
 
         # DATASET
         config['DATASET'] = {'name': 'VOC2012',
@@ -95,17 +95,18 @@ if __name__ == '__main__':
         # MODEL
         config['MODEL'] = {'backbone': 'MobileNetV2',
                         '# types: MobileNetV2, MobileNetV3': None,
-                        'from file': False,
+                        'from_file': False,
                         'filepath': "",
                         'pretrained': False,
                         'weightspath': "",
-                        'scale up input': False,
+                        '# write "imagenet" for loading keras pretrained model': None,
+                        'scale_up_input': False,
                         'change stride layers': 2}
 
         # SHUNT
         config['SHUNT'] = {'location': '62,114',
                         'arch': 1,
-                        'from file': False,
+                        'from_file': False,
                         'filepath': "",
                         'pretrained': False,
                         'weightspath': "",
@@ -113,24 +114,24 @@ if __name__ == '__main__':
 
         # TRAINING
         config['TRAINING_ORIGINAL_MODEL'] = {'batchsize': 16,
-                                            'epochs first cycle': 150,
-                                            'learning rate first cycle': 1e-1,
-                                            'epochs second cycle': 150,
-                                            'learning rate second cycle': 1e-3}
+                                            'epochs_first_cycle': 150,
+                                            'learning_rate_first_cycle': 1e-1,
+                                            'epochs_second_cycle': 150,
+                                            'learning_rate_second_cycle': 1e-3}
 
         config['TRAINING_SHUNT_MODEL'] = {'batchsize': 64,
-                                        'epochs first cycle': 50,
-                                        'learning rate first cycle': 1e-1,
-                                        'epochs second cycle': 500,
-                                        'learning rate second cycle': 1e-3}
+                                        'epochs_first_cycle': 50,
+                                        'learning_rate_first_cycle': 1e-1,
+                                        'epochs_second_cycle': 500,
+                                        'learning_rate_second_cycle': 1e-3}
 
-        config['TRAINING_FINAL_MODEL'] = {'finetune strategy': 'unfreeze_all',
+        config['TRAINING_FINAL_MODEL'] = {'finetune_strategy': 'unfreeze_all',
                                         '# strategies: unfreeze_all, unfreeze_shunt, unfreeze_per_epoch_starting_top, unfreeze_per_epoch_starting_shunt': None,
                                         'batchsize': 8,
-                                        'epochs first cycle': 50,
-                                        'learning rate first cycle': 1e-3,
-                                        'epochs second cycle': 50,
-                                        'learning rate second cycle': 1e-5}
+                                        'epochs_first_cycle': 50,
+                                        'learning_rate_first_cycle': 1e-3,
+                                        'epochs_second_cycle': 50,
+                                        'learning_rate_second_cycle': 1e-5}
 
         # FINAL MODEL
         config['FINAL_MODEL'] = {'pretrained': False,

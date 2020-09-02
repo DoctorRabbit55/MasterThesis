@@ -9,7 +9,7 @@ from pathlib import Path
 import numpy as np
 
 from CDL.models.MobileNet_v2 import create_mobilenet_v2
-from CDL.models.MobileNet_v3 import MobileNetV3_extended
+from CDL.models.MobileNet_v3 import create_mobilenet_v3
 from CDL.shunt import Architectures
 from CDL.utils.calculateFLOPS import calculateFLOPs_model, calculateFLOPs_blocks
 from CDL.utils.dataset_utils import *
@@ -35,27 +35,36 @@ if __name__ == '__main__':
     config = configparser.ConfigParser()
     config.read(config_path)
 
+    # USER PARAMS
+
+    for i in range(1,len(sys.argv)):
+        arg = sys.argv[i]
+        group = arg.split('#')[0]
+        param = arg.split('#')[1]
+        value = arg.split('#')[2]
+        config[group][param] = value
+
     modes = {}
-    modes['calc knowledge quotients'] = config['GENERAL'].getboolean('calc knowledge quotients')
-    modes['train original model'] = config['GENERAL'].getboolean('train original model')
-    modes['train final model'] = config['GENERAL'].getboolean('train final model')
-    modes['train shunt model'] = config['GENERAL'].getboolean('train shunt model')
-    modes['test shunt model'] = config['GENERAL'].getboolean('test shunt model')
-    modes['test fine-tune strategies'] = config['GENERAL'].getboolean('test fine-tune strategies')
-    modes['test latency'] = config['GENERAL'].getboolean('test latency')
+    modes['calc_knowledge_quotients'] = config['GENERAL'].getboolean('calc_knowledge_quotients')
+    modes['train_original_model'] = config['GENERAL'].getboolean('train_original_model')
+    modes['train_final_model'] = config['GENERAL'].getboolean('train_final_model')
+    modes['train_shunt_model'] = config['GENERAL'].getboolean('train_shunt_model')
+    modes['test_shunt_model'] = config['GENERAL'].getboolean('test_shunt_model')
+    modes['test_fine-tune_strategies'] = config['GENERAL'].getboolean('test_fine-tune_strategies')
+    modes['test_latency'] = config['GENERAL'].getboolean('test_latency')
     loglevel = 20
 
     dataset_name = config['DATASET']['name']
     dataset_path = config['DATASET']['path']
 
     model_type = config['MODEL']['type']
-    number_change_stride_layers = config['MODEL'].getint('change stride layers')
-    load_model_from_file = config['MODEL'].getboolean('from file')
+    number_change_stride_layers = config['MODEL'].getint('change_stride_layers')
+    load_model_from_file = config['MODEL'].getboolean('from_file')
     if (load_model_from_file):
         model_file_path = config['MODEL']['filepath']
     else:
-        scale_to_imagenet = config['MODEL'].getboolean('scale to imagenet')
-    input_image_size = config['MODEL'].getint('input image size')
+        scale_to_imagenet = config['MODEL'].getboolean('scale_to_imagenet')
+    input_image_size = config['MODEL'].getint('input_image_size')
     pretrained = config['MODEL'].getboolean('pretrained')
     if pretrained:
         weights_file_path = config['MODEL']['weightspath']
@@ -90,7 +99,8 @@ if __name__ == '__main__':
     flow_from_directory = False
     input_shape = None
 
-    copyfile(config_path, Path(folder_name_logging, "config.cfg"))
+    with open( Path(folder_name_logging, "config.cfg"), 'w') as configfile:
+        config.write(configfile)
 
     if dataset_name == 'CIFAR10':
 
@@ -133,6 +143,8 @@ if __name__ == '__main__':
     if model_type == 'MobileNetV2':
         if load_model_from_file:
             model_original = keras.models.load_model(model_file_path)
+        elif weights_file_path == 'imagenet':
+            model_original = create_mobilenet_v2(is_pretrained=True, num_classes=num_classes, input_shape=input_shape, mobilenet_shape=(input_image_size,input_image_size,3), num_change_strides=number_change_stride_layers)
         else:
             model_original = create_mobilenet_v2(is_pretrained=False, num_classes=num_classes, input_shape=input_shape, mobilenet_shape=(input_image_size,input_image_size,3), num_change_strides=number_change_stride_layers)
 
@@ -144,10 +156,11 @@ if __name__ == '__main__':
             is_small = False
 
         if load_model_from_file:
-            model_tmp = keras.models.load_model(model_file_path)
-            model_original = MobileNetV3_extended(model_tmp.input, model_tmp.output)
+            model_original = keras.models.load_model(model_file_path)
+        elif weights_file_path == 'imagenet':
+            model_original = create_mobilenet_v3(is_pretrained=True, num_classes=num_classes, is_small=is_small, input_shape=input_shape, mobilenet_shape=(input_image_size,input_image_size,3), num_change_strides=number_change_stride_layers)           
         else:
-            model_original = MobileNetV3_extended.create(is_pretrained=False, num_classes=num_classes, is_small=is_small, input_shape=input_shape, mobilenet_shape=(input_image_size,input_image_size,3))
+            model_original = create_mobilenet_v3(is_pretrained=False, num_classes=num_classes, is_small=is_small, input_shape=input_shape, mobilenet_shape=(input_image_size,input_image_size,3), num_change_strides=number_change_stride_layers)
 
     if pretrained:
         model_original.load_weights(weights_file_path)
@@ -155,11 +168,11 @@ if __name__ == '__main__':
 
 
     batch_size_original = training_original_model.getint('batchsize')
-    epochs_first_cycle_original = training_original_model.getint('epochs first cycle')
-    epochs_second_cycle_original = training_original_model.getint('epochs second cycle')
+    epochs_first_cycle_original = training_original_model.getint('epochs_first_cycle')
+    epochs_second_cycle_original = training_original_model.getint('epochs_second_cycle')
     epochs_original = epochs_first_cycle_original + epochs_second_cycle_original
-    learning_rate_first_cycle_original = training_original_model.getfloat('learning rate first cycle')
-    learning_rate_second_cycle_original = training_original_model.getfloat('learning rate second cycle')
+    learning_rate_first_cycle_original = training_original_model.getfloat('learning_rate_first_cycle')
+    learning_rate_second_cycle_original = training_original_model.getfloat('learning_rate_second_cycle')
 
     model_original.compile(loss='categorical_crossentropy', optimizer=keras.optimizers.SGD(lr=learning_rate_first_cycle_original, momentum=0.9, decay=0.0), metrics=[keras.metrics.categorical_crossentropy, 'accuracy'])
 
@@ -176,7 +189,7 @@ if __name__ == '__main__':
     callback_checkpoint = keras.callbacks.ModelCheckpoint(str(Path(folder_name_logging, "original_model_weights.h5")), save_best_only=False, save_weights_only=True)
     callback_learning_rate = LearningRateSchedulerCallback(epochs_first_cycle=epochs_first_cycle_original, learning_rate_second_cycle=learning_rate_second_cycle_original)
 
-    if modes['train original model']:
+    if modes['train_original_model']:
         print('Train original model:')
         if flow_from_directory:
             history_original = model_original.fit(datagen.flow_from_directory(dataset_path, batch_size=batch_size_original), epochs=epochs_original, validation_data=(x_test, y_test), verbose=1, callbacks=[callback_checkpoint, callback_learning_rate])
@@ -195,7 +208,7 @@ if __name__ == '__main__':
     print('Entropy: {:.5f}'.format(val_entropy_original))
     print('Accuracy: {:.4f}'.format(val_acc_original))
 
-    if modes['calc knowledge quotients']:
+    if modes['calc_knowledge_quotients']:
         know_quot = get_knowledge_quotients(model=model_original, data=(x_test, y_test), val_acc_model=val_acc_original)
         logging.info('')
         logging.info('################# RESULT ###################')
@@ -240,11 +253,11 @@ if __name__ == '__main__':
     flops_shunt = calculateFLOPs_model(model_shunt)
 
     batch_size_shunt = training_shunt_model.getint('batchsize')
-    epochs_first_cycle_shunt = training_shunt_model.getint('epochs first cycle')
-    epochs_second_cycle_shunt = training_shunt_model.getint('epochs second cycle')
+    epochs_first_cycle_shunt = training_shunt_model.getint('epochs_first_cycle')
+    epochs_second_cycle_shunt = training_shunt_model.getint('epochs_second_cycle')
     epochs_shunt = epochs_first_cycle_shunt + epochs_second_cycle_shunt
-    learning_rate_first_cycle_shunt = training_shunt_model.getfloat('learning rate first cycle')
-    learning_rate_second_cycle_shunt = training_shunt_model.getfloat('learning rate second cycle')
+    learning_rate_first_cycle_shunt = training_shunt_model.getfloat('learning_rate_first_cycle')
+    learning_rate_second_cycle_shunt = training_shunt_model.getfloat('learning_rate_second_cycle')
 
     model_shunt.compile(loss=keras.losses.mean_squared_error, optimizer=keras.optimizers.Adam(learning_rate=learning_rate_first_cycle_shunt, decay=0.0), metrics=[keras.metrics.MeanSquaredError()])
 
@@ -253,7 +266,7 @@ if __name__ == '__main__':
 
     # Feature maps
 
-    if modes['test shunt model'] or modes['train shunt model']:
+    if modes['test_shunt_model'] or modes['train_shunt_model']:
 
         fm1_train = fm2_train = fm1_test = fm2_test = None
         
@@ -279,13 +292,13 @@ if __name__ == '__main__':
             logging.info('')
             logging.info('Featuremaps saved to {}'.format(shunt_params['featuremapspath']))
 
-        if modes['train shunt model']:
+        if modes['train_shunt_model']:
             print('Train shunt model:')
             history_shunt = model_shunt.fit(x=fm1_train, y=fm2_train, batch_size=batch_size_shunt, epochs=epochs_shunt, validation_data=(fm1_test, fm2_test), verbose=1, callbacks=[callback_checkpoint, callback_learning_rate])
             history_shunt = model_shunt.fit(x=fm1_train, y=fm2_train, batch_size=batch_size_shunt, epochs=epochs_shunt, validation_data=(fm1_test, fm2_test), verbose=1, callbacks=[callback_checkpoint, callback_learning_rate])
             save_history_plot(history_shunt, "shunt", folder_name_logging)
 
-        if modes['test shunt model']:
+        if modes['test_shunt_model']:
             print('Test shunt model')
             val_loss_shunt, val_acc_shunt, = model_shunt.evaluate(fm1_test, fm2_test, verbose=1)
             print('Loss: {:.5f}'.format(val_loss_shunt))
@@ -317,11 +330,11 @@ if __name__ == '__main__':
     logging.info('FLOPs got reduced by {:.2f}%!'.format(reduction))
 
     batch_size_final = training_final_model.getint('batchsize')
-    epochs_first_cycle_final = training_final_model.getint('epochs first cycle')
-    epochs_second_cycle_final = training_final_model.getint('epochs second cycle')
+    epochs_first_cycle_final = training_final_model.getint('epochs_first_cycle')
+    epochs_second_cycle_final = training_final_model.getint('epochs_second_cycle')
     epochs_final = epochs_first_cycle_final + epochs_second_cycle_final
-    learning_rate_first_cycle_final = training_final_model.getfloat('learning rate first cycle')
-    learning_rate_second_cycle_final = training_final_model.getfloat('learning rate second cycle')
+    learning_rate_first_cycle_final = training_final_model.getfloat('learning_rate_first_cycle')
+    learning_rate_second_cycle_final = training_final_model.getfloat('learning_rate_second_cycle')
     
     logging.info('')
     logging.info('#######################################################################################################')
@@ -351,7 +364,7 @@ if __name__ == '__main__':
         print('Entropy: {:.5f}'.format(val_entropy_inserted))
         print('Accuracy: {:.4f}'.format(val_acc_inserted))
         
-    if modes['test fine-tune strategies']:
+    if modes['test_fine-tune_strategies']:
 
         strategies = [ 'unfreeze_after_shunt', 'unfreeze_from_shunt', 'unfreeze_all']
 
@@ -400,26 +413,26 @@ if __name__ == '__main__':
 
     else:
 
-        if training_final_model['finetune strategy'] == 'unfreeze_shunt':
+        if training_final_model['finetune_strategy'] == 'unfreeze_shunt':
             callbacks.append(callback_learning_rate)
             for i, layer in enumerate(model_final.layers):
                 if i < loc1 - 1 or i > loc1 + len(model_shunt.layers):
                     layer.trainable = False
 
-        if training_final_model['finetune strategy'] == 'unfreeze_after_shunt':
+        if training_final_model['finetune_strategy'] == 'unfreeze_after_shunt':
             callbacks.append(callback_learning_rate)
             for i, layer in enumerate(model_final.layers):
                 if i < loc1 + len(model_shunt.layers) - 1:
                     model_final.layers[i].trainable = False
 
 
-        if training_final_model['finetune strategy'] == 'unfreeze_per_epoch_starting_top':
+        if training_final_model['finetune_strategy'] == 'unfreeze_per_epoch_starting_top':
             callback_unfreeze = UnfreezeLayersCallback(epochs=epochs_final, epochs_per_unfreeze=2, learning_rate=learning_rate_first_cycle_final, unfreeze_to_index=loc1+len(model_shunt.layers), start_at=len(model_final.layers), direction=-1)
             callbacks.append(callback_unfreeze)
             for i, layer in enumerate(model_final.layers):
                 layer.trainable = False
 
-        if training_final_model['finetune strategy'] == 'unfreeze_per_epoch_starting_shunt':
+        if training_final_model['finetune_strategy'] == 'unfreeze_per_epoch_starting_shunt':
             callback_unfreeze = UnfreezeLayersCallback(epochs=epochs_final, epochs_per_unfreeze=2, learning_rate=learning_rate_first_cycle_final, unfreeze_to_index=0, start_at=loc1+len(model_shunt.layers)-2, direction=1)
             # TODO: test this
             callbacks.append(callback_unfreeze)
@@ -428,12 +441,12 @@ if __name__ == '__main__':
 
         model_final.compile(loss='categorical_crossentropy', optimizer=keras.optimizers.SGD(lr=learning_rate_first_cycle_final, momentum=0.9, decay=0.0, nesterov=False), metrics=['accuracy'])
 
-        if  modes['train final model']:
+        if  modes['train_final_model']:
             print('Train final model:')
             history_final = model_final.fit(datagen.flow(x_train, y_train, batch_size=batch_size_final), epochs=epochs_final, validation_data=(x_test, y_test), verbose=1, callbacks=callbacks)
             save_history_plot(history_final, "final", folder_name_logging)
 
-            print('Test final model')
+            print('Test_final_model')
             val_loss_finetuned, val_acc_finetuned = model_final.evaluate(x_test, y_test, verbose=1)
             print('Loss: {}'.format(val_loss_finetuned))
             print('Accuracy: {}'.format(val_acc_finetuned))
@@ -448,10 +461,10 @@ if __name__ == '__main__':
         logging.info('#######################################################################################################')
         logging.info('')
         logging.info('Original model: loss: {:.5f}, acc: {:.5f}'.format(val_loss_original, val_acc_original))
-        if modes['test shunt model']:
+        if modes['test_shunt_model']:
             logging.info('Shunt model: loss: {:.5f}, acc: {:.5f}'.format(val_loss_shunt, val_acc_shunt))
         logging.info('Inserted model: loss: {:.5f}, acc: {:.5f}'.format(val_loss_inserted, val_acc_inserted))
-        if  modes['train final model']: logging.info('Finetuned model: loss: {:.5f}, acc: {:.5f}'.format(val_loss_finetuned, val_acc_finetuned))
+        if  modes['train_final_model']: logging.info('Finetuned model: loss: {:.5f}, acc: {:.5f}'.format(val_loss_finetuned, val_acc_finetuned))
 
         Y_test = np.argmax(y_test, axis=1) # Convert one-hot to index
         y_pred = np.argmax(model_final.predict(x_test), axis=1)
@@ -459,11 +472,12 @@ if __name__ == '__main__':
 
     # latency test
 
-    if modes['test latency']:
+    if modes['test_latency']:
 
         original_list = []
         final_list = []
 
+        '''
         # warmup
         model_original.predict(x_test, verbose=1, batch_size=1)
         model_final.predict(x_test, verbose=1, batch_size=1)
@@ -483,8 +497,8 @@ if __name__ == '__main__':
 
             original_list.append(time_original)
             final_list.append(final_list)
-
-        for i in range(3):
+        '''
+        for i in range(2):
 
             start_final = time.process_time()
             model_final.predict(x_test, verbose=1, batch_size=1)
@@ -499,11 +513,13 @@ if __name__ == '__main__':
             time_final = (end_final-start_final)/len(x_test)
 
             original_list.append(time_original)
-            final_list.append(final_list)
-
+            final_list.append(time_final)
+        
+        print('1')
         time_original = np.mean(np.asarray(original_list))
+        print('2')
         time_final = np.mean(np.asarray(final_list))
-
+        print('3')
         logging.info('')
         logging.info('#######################################################################################################')
         logging.info('############################################## LATENCY ################################################')
