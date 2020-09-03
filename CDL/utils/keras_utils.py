@@ -57,12 +57,12 @@ def identify_residual_layer_indexes(model):
         layer = layers[i]
 
         if isinstance(layer, Add):
-            input_layers = layer._inbound_nodes[0].inbound_layers
+            input_layers = layer._inbound_nodes[-1].inbound_layers
             incoming_index = get_first_layer_by_index(model, input_layers)
             add_incoming_index_dic[i] = incoming_index
 
         if isinstance(layer, Multiply):
-            input_layers = layer._inbound_nodes[0].inbound_layers
+            input_layers = layer._inbound_nodes[-1].inbound_layers
             incoming_index = get_first_layer_by_index(model, input_layers)
             mult_incoming_index_dic[i] = incoming_index
         
@@ -79,7 +79,11 @@ def modify_model(model, layer_indexes_to_delete=[], layer_indexes_to_output=[], 
     got_shunt_inserted = False
     shunt_output = None
 
-    input_net = Input(model.input_shape[1:])
+    if 0 in layer_indexes_to_delete:
+        input_net = Input(model.layers[layer_indexes_to_delete[0]-1].output_shape[1:])
+    else:
+        input_net = Input(model.input_shape[1:])
+    
     x = input_net  
 
     # if input of residual layers gets deleted, we must remap them
@@ -97,7 +101,6 @@ def modify_model(model, layer_indexes_to_delete=[], layer_indexes_to_output=[], 
             if layer_index_to_delete == input_index:
                 mult_input_index_dic[mult_index] = input_index-1
 
-
     for i in range(1,len(model.layers)):
 
         layer = model.layers[i]
@@ -114,19 +117,29 @@ def modify_model(model, layer_indexes_to_delete=[], layer_indexes_to_output=[], 
 
         if should_delete:
             if shunt_to_insert and not got_shunt_inserted:
+                input_x = x
                 for shunt_layer in shunt_to_insert.layers[1:]:
-                    x = shunt_layer(x)
+                    #print(shunt_layer.name)
+                    if isinstance(shunt_layer, Add):
+                        x = shunt_layer([x, input_x])
+                    else:
+                        x = shunt_layer(x)
                     shunt_output = x
                 got_shunt_inserted = True
             continue
+
+        #print(i, "   ", layer.name)
 
         if isinstance(next_layer, Multiply):
             second_input_index = mult_input_index_dic[i]
             x = next_layer([x, mult_input_tensors[second_input_index]])
         elif isinstance(next_layer, Add):
             second_input_index = add_input_index_dic[i]
-            if second_input_index == -1: # use shunt
-                x = next_layer([x, shunt_output])
+            if second_input_index == -1: # use shunt or input layer
+                if shunt_to_insert:
+                    x = next_layer([x, shunt_output])
+                else:
+                    x = next_layer([x, input_net])
             else:
                 x = next_layer([x, add_input_tensors[second_input_index]])
         else:
@@ -138,6 +151,7 @@ def modify_model(model, layer_indexes_to_delete=[], layer_indexes_to_output=[], 
             mult_input_tensors[i] = x
 
         if i in layer_indexes_to_output:
+            print(layer.name)
             outputs.append(x)
 
     outputs.append(x)

@@ -4,8 +4,6 @@ from __future__ import print_function
 
 import tensorflow as tf
 import keras
-from keras_applications.mobilenet_v3 import MobileNetV3Small
-from keras_applications.mobilenet_v3 import MobileNetV3Large
 from keras.utils.generic_utils import get_custom_objects
 from keras.layers import Input, UpSampling2D, GlobalAveragePooling2D, Dense, Conv2D, BatchNormalization, ReLU, DepthwiseConv2D, InputLayer, Add, Multiply, Reshape, Activation, Dropout, Flatten, Softmax
 from keras import Model

@@ -15,10 +15,11 @@ from CDL.utils.calculateFLOPS import calculateFLOPs_model, calculateFLOPs_blocks
 from CDL.utils.dataset_utils import *
 from CDL.utils.get_knowledge_quotients import get_knowledge_quotients
 from CDL.utils.generic_utils import *
-from CDL.utils.keras_utils import extract_feature_maps, modify_model
+from CDL.utils.keras_utils import extract_feature_maps, modify_model, identify_residual_layer_indexes
 from CDL.utils.custom_callbacks import UnfreezeLayersCallback, LearningRateSchedulerCallback
 
 import tensorflow as tf
+import tensorflow_datasets as tfds
 from keras.datasets import cifar10
 from keras.utils import to_categorical
 from keras.preprocessing.image import ImageDataGenerator
@@ -66,6 +67,7 @@ if __name__ == '__main__':
         scale_to_imagenet = config['MODEL'].getboolean('scale_to_imagenet')
     input_image_size = config['MODEL'].getint('input_image_size')
     pretrained = config['MODEL'].getboolean('pretrained')
+    weights_file_path = ''
     if pretrained:
         weights_file_path = config['MODEL']['weightspath']
     
@@ -125,6 +127,29 @@ if __name__ == '__main__':
 
     if dataset_name == 'imagenet':
 
+        imagenet = tfds.image.Imagenet2012()
+        ## or by string name
+        #imagenet = tfds.builder('imagenet2012')
+
+        # Describe the dataset with DatasetInfo
+        print(imagenet.info)
+        C = imagenet.info.features['label'].num_classes
+        Ntrain = imagenet.info.splits['train'].num_examples
+        Nvalidation = imagenet.info.splits['validation'].num_examples
+        Nbatch = 32
+        assert C == 1000
+        assert Ntrain == 1281167
+        assert Nvalidation == 50000
+
+        # Download the data, prepare it, and write it to disk
+        imagenet.download_and_prepare()
+
+        # Load data from disk as tf.data.Datasets
+        datasets = imagenet.as_dataset()
+        train_dataset, validation_dataset = datasets['train'], datasets['validation']
+        assert isinstance(train_dataset, tf.data.Dataset)
+        assert isinstance(validation_dataset, tf.data.Dataset)
+
         datagen = ImageDataGenerator(
             rotation_range=0.0,
             width_shift_range=0.2,
@@ -133,7 +158,7 @@ if __name__ == '__main__':
             horizontal_flip=True,
             preprocessing_function=keras.applications.imagenet_utils.preprocess_input)
 
-        flow_from_directory = True
+        flow_from_directory = False
 
         print('Imagenet was loaded successfully!')
 
@@ -413,43 +438,108 @@ if __name__ == '__main__':
 
     else:
 
-        if training_final_model['finetune_strategy'] == 'unfreeze_shunt':
-            callbacks.append(callback_learning_rate)
-            for i, layer in enumerate(model_final.layers):
-                if i < loc1 - 1 or i > loc1 + len(model_shunt.layers):
+        if training_final_model['finetune_strategy'] == 'feature_maps':
+
+            residual_layer_dic, _ = identify_residual_layer_indexes(model_final)
+            fine_tune_locations = residual_layer_dic.keys()
+
+            for location in fine_tune_locations:
+
+                if location <= loc1+len(model_shunt.layers):
+                    continue
+
+
+                model_reduced = modify_model(model_final, layer_indexes_to_delete=range(location+1,len(model_final.layers)))
+
+                fm1_train = fm2_train = fm1_test = fm2_test = None
+        
+                if os.path.isfile(Path(shunt_params['featuremapspath'], "ft1_train_{}_{}.npy".format(residual_layer_dic[location], location))):
+                
+                    ft1_train = np.load(Path(shunt_params['featuremapspath'], "ft1_train_{}_{}.npy".format(residual_layer_dic[location], location)))
+                    ft2_train = np.load(Path(shunt_params['featuremapspath'], "ft2_train_{}_{}.npy".format(residual_layer_dic[location], location)))
+                    ft1_test = np.load(Path(shunt_params['featuremapspath'], "ft1_test_{}_{}.npy".format(residual_layer_dic[location], location)))
+                    ft2_test = np.load(Path(shunt_params['featuremapspath'], "ft2_test_{}_{}.npy".format(residual_layer_dic[location], location)))
+                    print('Feature maps loaded successfully!')
+
+                else:
+                    
+                    print('Feature maps extracting started:')
+
+                    loc1_original_model = (loc2-loc1)-len(model_shunt.layers) + residual_layer_dic[location]
+                    loc2_original_model = (loc2-loc1)-len(model_shunt.layers) + location
+
+                    (ft1_train, ft2_train)  = extract_feature_maps(model_original, x_train[:30000], [loc1_original_model, loc2_original_model]) # -1 since we need the input of the layer
+                    (ft1_test, ft2_test) = extract_feature_maps(model_original, x_test, [loc1_original_model, loc2_original_model]) # -1 since we need the input of the layer
+
+                    #np.save(Path(shunt_params['featuremapspath'], "ft1_train_{}_{}".format(loc1+len(model_shunt.layers), location)), ft1_train)
+                    #np.save(Path(shunt_params['featuremapspath'], "ft2_train_{}_{}".format(loc1+len(model_shunt.layers), location)), ft2_train)
+                    #np.save(Path(shunt_params['featuremapspath'], "ft1_test_{}_{}".format(loc1+len(model_shunt.layers), location)), ft1_test)
+                    #np.save(Path(shunt_params['featuremapspath'], "ft2_test_{}_{}".format(loc1+len(model_shunt.layers), location)), ft2_test)
+
+                    logging.info('')
+                    logging.info('Featuremaps saved to {}'.format(shunt_params['featuremapspath']))
+
+                model_reduced = modify_model(model_reduced, layer_indexes_to_delete=range(0,residual_layer_dic[location]+1))
+                model_reduced.compile(loss=keras.losses.mean_squared_error, optimizer=keras.optimizers.Adam(lr=learning_rate_first_cycle_final, decay=0.0), metrics=[keras.metrics.MeanSquaredError()])
+
+                print('Train reduced model:')
+                history_final = model_reduced.fit(x=ft1_train, y=ft2_train, batch_size=batch_size_final, epochs=epochs_final, validation_data=(ft1_test, ft2_test), verbose=1, callbacks=[callback_checkpoint, callback_learning_rate])
+                #save_history_plot(history_shunt, "final_{}".format(location), folder_name_logging)
+
+                model_final = modify_model(model_final, layer_indexes_to_delete=range(residual_layer_dic[location]+1, location+1), shunt_to_insert=model_reduced)
+                model_final.compile(loss='categorical_crossentropy', optimizer=keras.optimizers.SGD(lr=learning_rate_first_cycle_final, momentum=0.9, decay=0.0, nesterov=False), metrics=[keras.metrics.categorical_crossentropy, 'accuracy'])
+                #print(model_final.summary())
+
+                print('Test_final_model')
+                val_loss_finetuned, val_entropy_finetuned, val_acc_finetuned = model_final.evaluate(x_test, y_test, verbose=1)
+                print('Loss: {}'.format(val_loss_finetuned))
+                print('Entropy: {:.5f}'.format(val_entropy_finetuned))
+                print('Accuracy: {}'.format(val_acc_finetuned))
+
+        else:
+
+            if training_final_model['finetune_strategy'] == 'unfreeze_shunt':
+                callbacks.append(callback_learning_rate)
+                for i, layer in enumerate(model_final.layers):
+                    if i < loc1 - 1 or i > loc1 + len(model_shunt.layers):
+                        layer.trainable = False
+
+            if training_final_model['finetune_strategy'] == 'unfreeze_after_shunt':
+                callbacks.append(callback_learning_rate)
+                for i, layer in enumerate(model_final.layers):
+                    if i < loc1 + len(model_shunt.layers) - 1:
+                        model_final.layers[i].trainable = False
+
+
+            if training_final_model['finetune_strategy'] == 'unfreeze_per_epoch_starting_top':
+                callback_unfreeze = UnfreezeLayersCallback(epochs=epochs_final, epochs_per_unfreeze=2, learning_rate=learning_rate_first_cycle_final, unfreeze_to_index=loc1+len(model_shunt.layers), start_at=len(model_final.layers), direction=-1)
+                callbacks.append(callback_unfreeze)
+                for i, layer in enumerate(model_final.layers):
                     layer.trainable = False
 
-        if training_final_model['finetune_strategy'] == 'unfreeze_after_shunt':
-            callbacks.append(callback_learning_rate)
-            for i, layer in enumerate(model_final.layers):
-                if i < loc1 + len(model_shunt.layers) - 1:
-                    model_final.layers[i].trainable = False
+            if training_final_model['finetune_strategy'] == 'unfreeze_all':
+                for i, layer in enumerate(model_final.layers[:-1]):
+                    layer.trainable = False 
 
+            if training_final_model['finetune_strategy'] == 'unfreeze_per_epoch_starting_shunt':
+                callback_unfreeze = UnfreezeLayersCallback(epochs=epochs_final, epochs_per_unfreeze=2, learning_rate=learning_rate_first_cycle_final, unfreeze_to_index=0, start_at=loc1+len(model_shunt.layers)-2, direction=1)
+                # TODO: test this
+                callbacks.append(callback_unfreeze)
+                for i, layer in enumerate(model_final.layers):
+                    layer.trainable = False
 
-        if training_final_model['finetune_strategy'] == 'unfreeze_per_epoch_starting_top':
-            callback_unfreeze = UnfreezeLayersCallback(epochs=epochs_final, epochs_per_unfreeze=2, learning_rate=learning_rate_first_cycle_final, unfreeze_to_index=loc1+len(model_shunt.layers), start_at=len(model_final.layers), direction=-1)
-            callbacks.append(callback_unfreeze)
-            for i, layer in enumerate(model_final.layers):
-                layer.trainable = False
+            model_final.compile(loss='categorical_crossentropy', optimizer=keras.optimizers.SGD(lr=learning_rate_first_cycle_final, momentum=0.9, decay=0.0, nesterov=False), metrics=[keras.metrics.categorical_crossentropy, 'accuracy'])
 
-        if training_final_model['finetune_strategy'] == 'unfreeze_per_epoch_starting_shunt':
-            callback_unfreeze = UnfreezeLayersCallback(epochs=epochs_final, epochs_per_unfreeze=2, learning_rate=learning_rate_first_cycle_final, unfreeze_to_index=0, start_at=loc1+len(model_shunt.layers)-2, direction=1)
-            # TODO: test this
-            callbacks.append(callback_unfreeze)
-            for i, layer in enumerate(model_final.layers):
-                layer.trainable = False
+            if  modes['train_final_model']:
+                print('Train final model:')
+                history_final = model_final.fit(datagen.flow(x_train, y_train, batch_size=batch_size_final), epochs=epochs_final, validation_data=(x_test, y_test), verbose=1, callbacks=callbacks)
+                save_history_plot(history_final, "final", folder_name_logging)
 
-        model_final.compile(loss='categorical_crossentropy', optimizer=keras.optimizers.SGD(lr=learning_rate_first_cycle_final, momentum=0.9, decay=0.0, nesterov=False), metrics=['accuracy'])
-
-        if  modes['train_final_model']:
-            print('Train final model:')
-            history_final = model_final.fit(datagen.flow(x_train, y_train, batch_size=batch_size_final), epochs=epochs_final, validation_data=(x_test, y_test), verbose=1, callbacks=callbacks)
-            save_history_plot(history_final, "final", folder_name_logging)
-
-            print('Test_final_model')
-            val_loss_finetuned, val_acc_finetuned = model_final.evaluate(x_test, y_test, verbose=1)
-            print('Loss: {}'.format(val_loss_finetuned))
-            print('Accuracy: {}'.format(val_acc_finetuned))
+                print('Test_final_model')
+                val_loss_finetuned, val_entropy_finetuned, val_acc_finetuned = model_final.evaluate(x_test, y_test, verbose=1)
+                print('Loss: {}'.format(val_loss_finetuned))
+                print('Entropy: {:.5f}'.format(val_entropy_finetuned))
+                print('Accuracy: {}'.format(val_acc_finetuned))
 
         model_final.save_weights(str(Path(folder_name_logging, "final_model_weights.h5")))
         logging.info('')
@@ -514,11 +604,9 @@ if __name__ == '__main__':
             original_list.append(time_original)
             final_list.append(time_final)
         
-        print('1')
         time_original = np.mean(np.asarray(original_list))
-        print('2')
         time_final = np.mean(np.asarray(final_list))
-        print('3')
+
         logging.info('')
         logging.info('#######################################################################################################')
         logging.info('############################################## LATENCY ################################################')

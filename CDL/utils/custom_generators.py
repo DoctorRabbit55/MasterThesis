@@ -2,6 +2,7 @@ from keras.utils import Sequence
 
 from pathlib import Path
 import numpy as np
+import matplotlib.pyplot as plt
 import cv2
 
 class VOC2012_generator(Sequence):
@@ -47,10 +48,13 @@ class VOC2012_generator(Sequence):
             #y[i,:,:] = np.array(cv2.imread(self.y_dir + "/" + self.file_names[id] + ".png"))
             label = np.array(cv2.imread(str(self.y_dir / (self.file_names[id] + ".png"))))
 
-            for j, unique_value in enumerate(np.unique(label)):
-                if unique_value == 255:
-                    y[i,:,:,j] = np.where(label[:,:,0] == unique_value, -1, 0)
+            for j in range(21):
+                #if unique_value == 255:
+                #    y[i,:,:,j] = np.where(label[:,:,0] == unique_value, 1, 0)
+                #else:
+                if j is not 20:
+                    y[i,:,:,j] = np.where(label[:,:,0] == j, 1, 0)
                 else:
-                    y[i,:,:,j] = np.where(label[:,:,0] == unique_value, 1, 0)
+                    y[i,:,:,j] = np.where(label[:,:,0] == 255, 1, 0)
 
         return X, y
