@@ -467,8 +467,8 @@ if __name__ == '__main__':
                     loc1_original_model = (loc2-loc1)-len(model_shunt.layers) + residual_layer_dic[location]
                     loc2_original_model = (loc2-loc1)-len(model_shunt.layers) + location
 
-                    (ft1_train, ft2_train)  = extract_feature_maps(model_original, x_train[:30000], [loc1_original_model, loc2_original_model]) # -1 since we need the input of the layer
-                    (ft1_test, ft2_test) = extract_feature_maps(model_original, x_test, [loc1_original_model, loc2_original_model]) # -1 since we need the input of the layer
+                    (ft1_train, ft2_train)  = extract_feature_maps(model_original, x_train[:30000], [loc1_original_model+2, loc2_original_model+2]) # -1 since we need the input of the layer
+                    (ft1_test, ft2_test) = extract_feature_maps(model_original, x_test, [loc1_original_model+2, loc2_original_model+2]) # -1 since we need the input of the layer
 
                     #np.save(Path(shunt_params['featuremapspath'], "ft1_train_{}_{}".format(loc1+len(model_shunt.layers), location)), ft1_train)
                     #np.save(Path(shunt_params['featuremapspath'], "ft2_train_{}_{}".format(loc1+len(model_shunt.layers), location)), ft2_train)
