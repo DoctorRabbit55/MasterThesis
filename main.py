@@ -440,7 +440,7 @@ if __name__ == '__main__':
 
             residual_layer_dic, _ = identify_residual_layer_indexes(model_final)
             #residual_layer_dic = {}
-            residual_layer_dic[len(model_final.layers)-1] = len(model_final.layers)-1
+            residual_layer_dic[len(model_final.layers)-1] = len(model_final.layers)-2
             fine_tune_locations = residual_layer_dic.keys()
 
             for location in fine_tune_locations:
@@ -588,7 +588,7 @@ if __name__ == '__main__':
             time_final = (end_final-start_final)/len(x_test)
 
             original_list.append(time_original)
-            final_list.append(final_list)
+            final_list.append(time_final)
     
         for i in range(5):
 
