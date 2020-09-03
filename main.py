@@ -19,7 +19,6 @@ from CDL.utils.keras_utils import extract_feature_maps, modify_model, identify_r
 from CDL.utils.custom_callbacks import UnfreezeLayersCallback, LearningRateSchedulerCallback
 
 import tensorflow as tf
-import tensorflow_datasets as tfds
 from keras.datasets import cifar10
 from keras.utils import to_categorical
 from keras.preprocessing.image import ImageDataGenerator
