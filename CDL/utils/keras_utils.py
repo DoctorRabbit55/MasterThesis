@@ -80,7 +80,7 @@ def modify_model(model, layer_indexes_to_delete=[], layer_indexes_to_output=[], 
     shunt_output = None
 
     if 0 in layer_indexes_to_delete:
-        input_net = Input(model.layers[layer_indexes_to_delete[0]-1].output_shape[1:])
+        input_net = Input(model.layers[layer_indexes_to_delete[-1]-1].output_shape[1:])
     else:
         input_net = Input(model.input_shape[1:])
     
@@ -119,7 +119,7 @@ def modify_model(model, layer_indexes_to_delete=[], layer_indexes_to_output=[], 
             if shunt_to_insert and not got_shunt_inserted:
                 input_x = x
                 for shunt_layer in shunt_to_insert.layers[1:]:
-                    #print(shunt_layer.name)
+                    print(shunt_layer.name)
                     if isinstance(shunt_layer, Add):
                         x = shunt_layer([x, input_x])
                     else:
@@ -128,7 +128,7 @@ def modify_model(model, layer_indexes_to_delete=[], layer_indexes_to_output=[], 
                 got_shunt_inserted = True
             continue
 
-        #print(i, "   ", layer.name)
+        print(i, "   ", layer.name)
 
         if isinstance(next_layer, Multiply):
             second_input_index = mult_input_index_dic[i]

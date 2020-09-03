@@ -80,7 +80,7 @@ if __name__ == '__main__':
 
         # GENERAL
         config['GENERAL'] = {'train_original_model': False,
-                            'calc_knowledge_quotient': False,
+                            'calc_knowledge_quotients': False,
                             'train_shunt_model': False,
                             'test_shunt_model': False,
                             'train_final_model': False,

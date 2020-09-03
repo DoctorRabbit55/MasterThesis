@@ -75,7 +75,7 @@ def create_mobilenet_v2(input_shape=(32,32,3), num_classes=10, is_pretrained=Fal
         x = Dropout(rate=0.2)(x)
         x = Dense(num_classes, activation='softmax')(x)
 
-        return add_regularization(Model(inputs=input_net, outputs=x, name='mobilenetv2'))
+        return Model(inputs=input_net, outputs=x, name='mobilenetv2')
 
 
 """MobileNet v2 models for Keras.

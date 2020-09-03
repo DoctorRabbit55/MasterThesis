@@ -210,7 +210,7 @@ if __name__ == '__main__':
 
     flops_original = calculateFLOPs_model(model_original)
 
-    callback_checkpoint = keras.callbacks.ModelCheckpoint(str(Path(folder_name_logging, "original_model_weights.h5")), save_best_only=False, save_weights_only=True)
+    callback_checkpoint = keras.callbacks.ModelCheckpoint(str(Path(folder_name_logging, "original_model_weights.h5")), save_best_only=True, save_weights_only=True)
     callback_learning_rate = LearningRateSchedulerCallback(epochs_first_cycle=epochs_first_cycle_original, learning_rate_second_cycle=learning_rate_second_cycle_original)
 
     if modes['train_original_model']:
@@ -285,7 +285,7 @@ if __name__ == '__main__':
 
     model_shunt.compile(loss=keras.losses.mean_squared_error, optimizer=keras.optimizers.Adam(learning_rate=learning_rate_first_cycle_shunt, decay=0.0), metrics=[keras.metrics.MeanSquaredError()])
 
-    callback_checkpoint = keras.callbacks.ModelCheckpoint(str(Path(folder_name_logging, "shunt_model_weights.h5")), save_best_only=False, save_weights_only=True)
+    callback_checkpoint = keras.callbacks.ModelCheckpoint(str(Path(folder_name_logging, "shunt_model_weights.h5")), save_best_only=True, save_weights_only=True)
     callback_learning_rate = LearningRateSchedulerCallback(epochs_first_cycle=epochs_first_cycle_shunt, learning_rate_second_cycle=learning_rate_second_cycle_shunt)
 
     # Feature maps
@@ -367,7 +367,7 @@ if __name__ == '__main__':
     logging.info('')
     model_final.summary(print_fn=logger.info, line_length=150)
 
-    callback_checkpoint = keras.callbacks.ModelCheckpoint(str(Path(folder_name_logging, "final_model_weights.h5")), save_best_only=False, save_weights_only=True)
+    callback_checkpoint = keras.callbacks.ModelCheckpoint(str(Path(folder_name_logging, "final_model_weights.h5")), save_best_only=True, save_weights_only=True)
     callback_learning_rate = LearningRateSchedulerCallback(epochs_first_cycle=epochs_first_cycle_final, learning_rate_second_cycle=learning_rate_second_cycle_final)
     callbacks = [callback_checkpoint]
 
@@ -417,7 +417,7 @@ if __name__ == '__main__':
 
             model_final.compile(loss='categorical_crossentropy', optimizer=keras.optimizers.SGD(lr=learning_rate_first_cycle_final, momentum=0.9, decay=0.0, nesterov=False), metrics=[keras.metrics.categorical_crossentropy, 'accuracy'])
 
-            callback_checkpoint = keras.callbacks.ModelCheckpoint(str(Path(folder_name_logging, "final_model_{}_weights.h5".format(strategy))), save_best_only=False, save_weights_only=True)
+            callback_checkpoint = keras.callbacks.ModelCheckpoint(str(Path(folder_name_logging, "final_model_{}_weights.h5".format(strategy))), save_best_only=True, save_weights_only=True)
             callbacks = [callback_checkpoint]
 
             print('Train final model with strategy {}:'.format(strategy))
@@ -440,6 +440,8 @@ if __name__ == '__main__':
         if training_final_model['finetune_strategy'] == 'feature_maps':
 
             residual_layer_dic, _ = identify_residual_layer_indexes(model_final)
+            #residual_layer_dic = {}
+            residual_layer_dic[len(model_final.layers)-1] = len(model_final.layers)-1
             fine_tune_locations = residual_layer_dic.keys()
 
             for location in fine_tune_locations:
@@ -520,7 +522,7 @@ if __name__ == '__main__':
                     layer.trainable = False
 
             if training_final_model['finetune_strategy'] == 'unfreeze_all':
-                for i, layer in enumerate(model_final.layers[:-1]):
+                for i, layer in enumerate(model_final.layers[:-6]):
                     layer.trainable = False 
 
             if training_final_model['finetune_strategy'] == 'unfreeze_per_epoch_starting_shunt':
