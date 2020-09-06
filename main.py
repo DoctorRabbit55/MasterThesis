@@ -202,13 +202,13 @@ if __name__ == '__main__':
         print(keras.applications.imagenet_utils.decode_predictions(prediction))
         val_loss_original, val_entropy_original, val_acc_original = model_original.evaluate(Imagenet_generator(dataset_image_path, dataset_ground_truth_file_path, shuffle=False), verbose=1)
     else:
-        val_loss_original, val_entropy_original, val_acc_original = model_original.evaluate(Imagenet_generator(dataset_image_path, dataset_ground_truth_file_path, shuffle=False), verbose=1)
+        val_loss_original, val_entropy_original, val_acc_original = model_original.evaluate(x_test, y_test, verbose=1)
     print('Loss: {:.5f}'.format(val_loss_original))
     print('Entropy: {:.5f}'.format(val_entropy_original))
     print('Accuracy: {:.4f}'.format(val_acc_original))
 
     if modes['calc_knowledge_quotients']:
-        know_quot = get_knowledge_quotients(model=model_original, data=(x_test, y_test), val_acc_model=val_acc_original)
+        know_quot = get_knowledge_quotients(model=model_original, datagen=Imagenet_generator(dataset_image_path, dataset_ground_truth_file_path, shuffle=False), val_acc_model=val_acc_original)
         logging.info('')
         logging.info('################# RESULT ###################')
         logging.info('')
