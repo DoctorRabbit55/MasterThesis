@@ -36,6 +36,8 @@ def create_mobilenet_v3(input_shape=(32,32,3), num_classes=10, is_pretrained=Fal
         else:
             mobilenet = MobileNetV3Large(weights='imagenet', include_top=True, classes=num_classes, input_shape=mobilenet_shape, backend=keras.backend, layers=keras.layers, models=keras.models, utils=keras.utils)
 
+        return mobilenet
+
     else:
         if is_small:
             mobilenet = MobileNetV3Small(weights=None, include_top=True, classes=num_classes, input_shape=mobilenet_shape, backend=keras.backend, layers=keras.layers, models=keras.models, utils=keras.utils)
