@@ -25,7 +25,7 @@ def create_mobilenet_v2(input_shape=(32,32,3), num_classes=10, is_pretrained=Fal
 
     if is_pretrained:
 
-        mobilenet = MobileNetV2(input_shape=mobilenet_shape, include_top=True, alpha=1.0, weights='imagenet', backend=keras.backend, layers=keras.layers, models=keras.models, utils=keras.utils)
+        mobilenet = keras.applications.MobileNetV2(input_shape=mobilenet_shape, include_top=True, alpha=1.0, weights='imagenet')
 
         return mobilenet
 

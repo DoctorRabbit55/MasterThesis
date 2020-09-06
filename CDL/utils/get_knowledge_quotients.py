@@ -2,9 +2,7 @@ from keras.optimizers import SGD
 
 from .keras_utils import *
 
-def get_knowledge_quotients(model, data, val_acc_model):
-
-    (x_test, y_test) = data
+def get_knowledge_quotients(model, datagen, val_acc_model):
 
     know_quot = []
     add_input_dic, _ = identify_residual_layer_indexes(model)
@@ -17,7 +15,7 @@ def get_knowledge_quotients(model, data, val_acc_model):
 
         model_reduced.compile(loss='categorical_crossentropy', optimizer=SGD(lr=2e-2, momentum=0.9, decay=0.0, nesterov=False), metrics=['accuracy'])
 
-        val_loss, val_acc = model_reduced.evaluate(x_test, y_test, verbose=1)
+        val_loss, val_acc = model_reduced.evaluate(datagen, verbose=1)
         print('Test loss for block {}: {:.5f}'.format(add_input_dic[add_layer_index], val_loss))
         print('Test accuracy for block {}: {:.5f}'.format(add_input_dic[add_layer_index], val_acc))
 
