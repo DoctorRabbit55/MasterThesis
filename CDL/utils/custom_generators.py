@@ -11,10 +11,10 @@ import cv2
 
 class Imagenet_generator(Sequence):
 
-    def __init__(self, x_dir, label_file_path, shuffle=True, batch_size=32):
+    def __init__(self, x_dir, label_file_path, shuffle=True, batch_size=64):
         self.batch_size = batch_size
         self.x_dir = x_dir
-        self.x_file_names = os.listdir(x_dir) 
+        self.x_file_names = sorted(os.listdir(x_dir))
         self.shuffle = shuffle
         self.current_indices = np.arange(len(self.x_file_names))
 
