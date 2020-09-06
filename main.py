@@ -17,6 +17,7 @@ from CDL.utils.get_knowledge_quotients import get_knowledge_quotients
 from CDL.utils.generic_utils import *
 from CDL.utils.keras_utils import extract_feature_maps, modify_model, identify_residual_layer_indexes
 from CDL.utils.custom_callbacks import UnfreezeLayersCallback, LearningRateSchedulerCallback
+from CDL.utils.custom_generators import Imagenet_generator
 
 import tensorflow as tf
 from keras.datasets import cifar10
@@ -66,9 +67,7 @@ if __name__ == '__main__':
         scale_to_imagenet = config['MODEL'].getboolean('scale_to_imagenet')
     input_image_size = config['MODEL'].getint('input_image_size')
     pretrained = config['MODEL'].getboolean('pretrained')
-    weights_file_path = ''
-    if pretrained:
-        weights_file_path = config['MODEL']['weightspath']
+    weights_file_path = config['MODEL']['weightspath']
     
     training_original_model = config['TRAINING_ORIGINAL_MODEL']
     training_shunt_model = config['TRAINING_SHUNT_MODEL']
@@ -126,38 +125,11 @@ if __name__ == '__main__':
 
     if dataset_name == 'imagenet':
 
-        imagenet = tfds.image.Imagenet2012()
-        ## or by string name
-        #imagenet = tfds.builder('imagenet2012')
-
-        # Describe the dataset with DatasetInfo
-        print(imagenet.info)
-        C = imagenet.info.features['label'].num_classes
-        Ntrain = imagenet.info.splits['train'].num_examples
-        Nvalidation = imagenet.info.splits['validation'].num_examples
-        Nbatch = 32
-        assert C == 1000
-        assert Ntrain == 1281167
-        assert Nvalidation == 50000
-
-        # Download the data, prepare it, and write it to disk
-        imagenet.download_and_prepare()
-
-        # Load data from disk as tf.data.Datasets
-        datasets = imagenet.as_dataset()
-        train_dataset, validation_dataset = datasets['train'], datasets['validation']
-        assert isinstance(train_dataset, tf.data.Dataset)
-        assert isinstance(validation_dataset, tf.data.Dataset)
-
-        datagen = ImageDataGenerator(
-            rotation_range=0.0,
-            width_shift_range=0.2,
-            height_shift_range=0.2,
-            vertical_flip=False,
-            horizontal_flip=True,
-            preprocessing_function=keras.applications.imagenet_utils.preprocess_input)
-
-        flow_from_directory = False
+        dataset_image_path = Path(dataset_path, "images")
+        dataset_ground_truth_file_path = Path(dataset_path, "val.txt")
+        flow_from_directory = True
+        num_classes = 1000
+        input_shape = (224,224,3)
 
         print('Imagenet was loaded successfully!')
 
@@ -210,13 +182,13 @@ if __name__ == '__main__':
 
     flops_original = calculateFLOPs_model(model_original)
 
-    callback_checkpoint = keras.callbacks.ModelCheckpoint(str(Path(folder_name_logging, "original_model_weights.h5")), save_best_only=True, monitor='val_acc', mode='max', save_weights_only=True)
+    callback_checkpoint = keras.callbacks.ModelCheckpoint(str(Path(folder_name_logging, "original_model_weights.h5")), save_best_only=True, monitor='val_accuracy', mode='max', save_weights_only=True)
     callback_learning_rate = LearningRateSchedulerCallback(epochs_first_cycle=epochs_first_cycle_original, learning_rate_second_cycle=learning_rate_second_cycle_original)
 
     if modes['train_original_model']:
         print('Train original model:')
         if flow_from_directory:
-            history_original = model_original.fit(datagen.flow_from_directory(dataset_path, batch_size=batch_size_original), epochs=epochs_original, validation_data=(x_test, y_test), verbose=1, callbacks=[callback_checkpoint, callback_learning_rate])
+            history_original = model_original.fit(Imagenet_generator(dataset_image_path, dataset_ground_truth_file_path, batch_size=batch_size_original), epochs=epochs_original, validation_data=(x_test, y_test), verbose=1, callbacks=[callback_checkpoint, callback_learning_rate])
         else:
             history_original = model_original.fit(datagen.flow(x_train, y_train, batch_size=batch_size_original), epochs=epochs_original, validation_data=(x_test, y_test), verbose=1, callbacks=[callback_checkpoint, callback_learning_rate])
         model_original.save_weights(str(Path(folder_name_logging, "original_model_weights.h5")))
@@ -225,7 +197,10 @@ if __name__ == '__main__':
     # test original model
     print('Test original model')
     if flow_from_directory:
-        val_loss_original, val_entropy_original, val_acc_original = model_original.evaluate(datagen.flow_from_directory(dataset_path), verbose=1)
+        prediction = model_original.predict(Imagenet_generator(dataset_image_path, dataset_ground_truth_file_path, shuffle=False, batch_size=1), batch_size=1, steps=1)
+        print(prediction[0][489:491])
+        print(keras.applications.imagenet_utils.decode_predictions(prediction))
+        val_loss_original, val_entropy_original, val_acc_original = model_original.evaluate(Imagenet_generator(dataset_image_path, dataset_ground_truth_file_path, shuffle=False), verbose=1)
     else:
         val_loss_original, val_entropy_original, val_acc_original = model_original.evaluate(x_test, y_test, verbose=1)
     print('Loss: {:.5f}'.format(val_loss_original))
@@ -285,7 +260,7 @@ if __name__ == '__main__':
 
     model_shunt.compile(loss=keras.losses.mean_squared_error, optimizer=keras.optimizers.Adam(learning_rate=learning_rate_first_cycle_shunt, decay=0.0), metrics=[keras.metrics.MeanSquaredError()])
 
-    callback_checkpoint = keras.callbacks.ModelCheckpoint(str(Path(folder_name_logging, "shunt_model_weights.h5")), save_best_only=True, monitor='val_acc', mode='max', save_weights_only=True)
+    callback_checkpoint = keras.callbacks.ModelCheckpoint(str(Path(folder_name_logging, "shunt_model_weights.h5")), save_best_only=True, monitor='val_acc', mode='min', save_weights_only=True)
     callback_learning_rate = LearningRateSchedulerCallback(epochs_first_cycle=epochs_first_cycle_shunt, learning_rate_second_cycle=learning_rate_second_cycle_shunt)
 
     # Feature maps
@@ -417,7 +392,7 @@ if __name__ == '__main__':
             model_final.compile(loss='categorical_crossentropy', optimizer=keras.optimizers.SGD(lr=learning_rate_first_cycle_final, momentum=0.9, decay=0.0, nesterov=False), metrics=[keras.metrics.categorical_crossentropy, 'accuracy'])
 
             callback_checkpoint = keras.callbacks.ModelCheckpoint(str(Path(folder_name_logging, "final_model_{}_weights.h5".format(strategy))), save_best_only=True, monitor='val_acc', mode='max', save_weights_only=True)
-            callbacks = [callback_checkpoint]
+            callbacks = [callback_checkpoint, callback_learning_rate]
 
             print('Train final model with strategy {}:'.format(strategy))
             train_start = time.process_time()

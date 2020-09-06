@@ -24,10 +24,10 @@ def create_mobilenet_v2(input_shape=(32,32,3), num_classes=10, is_pretrained=Fal
     mobilenet = None
 
     if is_pretrained:
-    
-        mobilenet = MobileNetV2(input_shape=mobilenet_shape, include_top=True, alpha=1.0, weights='imagenet')
 
-        return add_regularization(mobilenet)
+        mobilenet = MobileNetV2(input_shape=mobilenet_shape, include_top=True, alpha=1.0, weights='imagenet', backend=keras.backend, layers=keras.layers, models=keras.models, utils=keras.utils)
+
+        return mobilenet
 
     else:
         mobilenet = MobileNetV2(input_shape=mobilenet_shape, include_top=True, weights=None, classes=num_classes, output_stride=None, backend=keras.backend, layers=keras.layers, models=keras.models, utils=keras.utils)
