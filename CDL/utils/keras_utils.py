@@ -128,7 +128,7 @@ def modify_model(model, layer_indexes_to_delete=[], layer_indexes_to_output=[], 
                 got_shunt_inserted = True
             continue
 
-        print(i, "   ", layer.name)
+        #print(i, "   ", layer.name)
 
         if isinstance(next_layer, Multiply):
             second_input_index = mult_input_index_dic[i]
@@ -151,7 +151,7 @@ def modify_model(model, layer_indexes_to_delete=[], layer_indexes_to_output=[], 
             mult_input_tensors[i] = x
 
         if i in layer_indexes_to_output:
-            print(layer.name)
+            #print(layer.name)
             outputs.append(x)
 
     outputs.append(x)

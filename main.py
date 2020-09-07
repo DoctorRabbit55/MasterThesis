@@ -17,7 +17,7 @@ from CDL.utils.get_knowledge_quotients import get_knowledge_quotients
 from CDL.utils.generic_utils import *
 from CDL.utils.keras_utils import extract_feature_maps, modify_model, identify_residual_layer_indexes
 from CDL.utils.custom_callbacks import UnfreezeLayersCallback, LearningRateSchedulerCallback
-from CDL.utils.custom_generators import Imagenet_generator
+from CDL.utils.custom_generators import Imagenet_generator, feature_map_generator
 
 import tensorflow as tf
 from keras.datasets import cifar10
@@ -107,8 +107,10 @@ if __name__ == '__main__':
         (x_train, y_train), (x_test, y_test) = load_and_preprocess_CIFAR10()
         input_shape = (32,32,3)
         num_classes = 10
+        len_train_data = 50000
+        len_val_data = 10000
 
-        datagen = ImageDataGenerator(
+        datagen_train = ImageDataGenerator(
             featurewise_center=False, 
             featurewise_std_normalization=False, 
             rotation_range=0.0,
@@ -116,7 +118,16 @@ if __name__ == '__main__':
             height_shift_range=0.2, 
             vertical_flip=False,
             horizontal_flip=True)
-        datagen.fit(x_train)
+        
+        datagen_val = ImageDataGenerator(
+            featurewise_center=False, 
+            featurewise_std_normalization=False, 
+            rotation_range=0.0,
+            width_shift_range=0.0, 
+            height_shift_range=0.0, 
+            vertical_flip=False,
+            horizontal_flip=False)
+        
 
         print('CIFAR10 was loaded successfully!')
 
@@ -129,6 +140,8 @@ if __name__ == '__main__':
 
         num_classes = 1000
         input_shape = (224,224,3)
+        len_train_data = 1281167
+        len_val_data = 50000
 
         dataget_val = Imagenet_generator(dataset_val_image_path, dataset_ground_truth_file_path, shuffle=False)
 
@@ -200,10 +213,12 @@ if __name__ == '__main__':
             history_original = model_original.fit(datagen_train.flow_from_directory(dataset_train_image_path, shuffle=True, target_size=(224,224), batch_size=batch_size_original), epochs=epochs_original, validation_data=(x_test, y_test), verbose=1, callbacks=[callback_checkpoint, callback_learning_rate])
         elif dataset_name == 'CIFAR10':
             history_original = model_original.fit(datagen_train.flow(x_train, y_train, batch_size=batch_size_original), epochs=epochs_original, validation_data=(x_test, y_test), verbose=1, callbacks=[callback_checkpoint, callback_learning_rate])
-        model_original.save_weights(str(Path(folder_name_logging, "original_model_weights.h5")))
+
+        model_original.load_weights(str(Path(folder_name_logging, "original_model_weights.h5")))
         #save_history_plot(history_original, "original", folder_name_logging)
 
     # test original model
+    
     print('Test original model')
     if dataset_name == 'imagenet':
         val_loss_original, val_entropy_original, val_acc_original = model_original.evaluate(datagen_val, verbose=1)
@@ -212,12 +227,12 @@ if __name__ == '__main__':
     print('Loss: {:.5f}'.format(val_loss_original))
     print('Entropy: {:.5f}'.format(val_entropy_original))
     print('Accuracy: {:.4f}'.format(val_acc_original))
-
+    
     if modes['calc_knowledge_quotients']:
         if dataset_name == 'imagenet':
             know_quot = get_knowledge_quotients(model=model_original, datagen=datagen_val, val_acc_model=val_acc_original)
         elif dataset_name == 'CIFAR10':
-            know_quot = get_knowledge_quotients(model=model_original, datagen=(x_test, y_tes), val_acc_model=val_acc_original)
+            know_quot = get_knowledge_quotients(model=model_original, datagen=(x_test, y_test), val_acc_model=val_acc_original)
 
         logging.info('')
         logging.info('################# RESULT ###################')
@@ -279,31 +294,16 @@ if __name__ == '__main__':
 
         fm1_train = fm2_train = fm1_test = fm2_test = None
         
-        if os.path.isfile(Path(shunt_params['featuremapspath'], "fm1_train_{}_{}.npy".format(loc1, loc2))):
-        
-            fm1_train = np.load(Path(shunt_params['featuremapspath'], "fm1_train_{}_{}.npy".format(loc1, loc2)))
-            fm2_train = np.load(Path(shunt_params['featuremapspath'], "fm2_train_{}_{}.npy".format(loc1, loc2)))
-            fm1_test = np.load(Path(shunt_params['featuremapspath'], "fm1_test_{}_{}.npy".format(loc1, loc2)))
-            fm2_test = np.load(Path(shunt_params['featuremapspath'], "fm2_test_{}_{}.npy".format(loc1, loc2)))
-            print('Feature maps loaded successfully!')
-
-        else:
-            
-            print('Feature maps extracting started:')
-            (fm1_train, fm2_train)  = extract_feature_maps(model_original, x_train, [loc1-1, loc2]) # -1 since we need the input of the layer
-            (fm1_test, fm2_test) = extract_feature_maps(model_original, x_test, [loc1-1, loc2]) # -1 since we need the input of the layer
-
-            np.save(Path(shunt_params['featuremapspath'], "fm1_train_{}_{}".format(loc1, loc2)), fm1_train)
-            np.save(Path(shunt_params['featuremapspath'], "fm2_train_{}_{}".format(loc1, loc2)), fm2_train)
-            np.save(Path(shunt_params['featuremapspath'], "fm1_test_{}_{}".format(loc1, loc2)), fm1_test)
-            np.save(Path(shunt_params['featuremapspath'], "fm2_test_{}_{}".format(loc1, loc2)), fm2_test)
-
-            logging.info('')
-            logging.info('Featuremaps saved to {}'.format(shunt_params['featuremapspath']))
+        if dataset_name == 'imagenet':
+            feature_maps_train_gen = feature_map_generator(model_original, batch_size=batch_size_shunt, datagen_train=datagen_train, x_data=x_train, len_x_data = len_train_data, shunt_locations=(loc1-1,loc2), flow_from_directory=True)
+            feature_maps_val_gen = feature_map_generator(model_original, batch_size=batch_size_shunt, datagen_train=datagen_val, x_data=x_test, len_x_data = len_val_data, shunt_locations=(loc1-1,loc2), flow_from_directory=True)
+        elif dataset_name == 'CIFAR10':
+            feature_maps_train_gen = feature_map_generator(model_original, batch_size=batch_size_shunt, datagen_train=datagen_train, x_data=x_train, len_x_data = len_train_data, shunt_locations=(loc1-1,loc2))
+            feature_maps_val_gen = feature_map_generator(model_original, batch_size=batch_size_shunt, datagen_train=datagen_val, x_data=x_test, len_x_data = len_val_data, shunt_locations=(loc1-1,loc2))
 
         if modes['train_shunt_model']:
             print('Train shunt model:')
-            history_shunt = model_shunt.fit(x=fm1_train, y=fm2_train, batch_size=batch_size_shunt, epochs=epochs_shunt, validation_data=(fm1_test, fm2_test), verbose=1, callbacks=[callback_checkpoint, callback_learning_rate])
+            history_shunt = model_shunt.fit(feature_maps_train_gen, batch_size=batch_size_shunt, epochs=epochs_shunt, validation_data=feature_maps_val_gen, verbose=1, callbacks=[callback_checkpoint, callback_learning_rate])
             #save_history_plot(history_shunt, "shunt", folder_name_logging)
 
         if modes['test_shunt_model']:
@@ -408,7 +408,8 @@ if __name__ == '__main__':
             train_start = time.process_time()
             history_final = model_final.fit(datagen.flow(x_train, y_train, batch_size=batch_size_final), epochs=epochs_final, validation_data=(x_test, y_test), verbose=1, callbacks=callbacks)
             train_stop = time.process_time()
-            save_history_plot(history_final, "final_{}".format(strategy), folder_name_logging)
+            model_final.load_weights(str(Path(folder_name_logging, "final_model_{}_weights.h5".format(strategy))))
+            #save_history_plot(history_final, "final_{}".format(strategy), folder_name_logging)
 
             print('Test final model with strategy {}:'.format(strategy))
             val_loss_finetuned, val_entropy_finetuned, val_acc_finetuned = model_final.evaluate(x_test, y_test, verbose=1)
@@ -521,7 +522,9 @@ if __name__ == '__main__':
             if  modes['train_final_model']:
                 print('Train final model:')
                 history_final = model_final.fit(datagen.flow(x_train, y_train, batch_size=batch_size_final), epochs=epochs_final, validation_data=(x_test, y_test), verbose=1, callbacks=callbacks)
-                save_history_plot(history_final, "final", folder_name_logging)
+                #save_history_plot(history_final, "final", folder_name_logging)
+
+                model_final.load_weights(str(Path(folder_name_logging, "final_model_weights.h5")))
 
                 print('Test_final_model')
                 val_loss_finetuned, val_entropy_finetuned, val_acc_finetuned = model_final.evaluate(x_test, y_test, verbose=1)
@@ -529,7 +532,7 @@ if __name__ == '__main__':
                 print('Entropy: {:.5f}'.format(val_entropy_finetuned))
                 print('Accuracy: {}'.format(val_acc_finetuned))
 
-        model_final.save_weights(str(Path(folder_name_logging, "final_model_weights.h5")))
+        model_final.load_weights(str(Path(folder_name_logging, "final_model_weights.h5")))
         logging.info('')
         logging.info('Final model weights saved to {}'.format(folder_name_logging))
 

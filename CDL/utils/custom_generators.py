@@ -3,11 +3,40 @@ from keras.preprocessing import image
 from keras.applications import imagenet_utils
 import keras
 
+from CDL.utils.keras_utils import modify_model
+
 from pathlib import Path
 import os
 import numpy as np
 import matplotlib.pyplot as plt
 import cv2
+
+
+class feature_map_generator(Sequence):
+
+    def __init__(self, model, batch_size, shunt_locations, datagen_train, x_data, len_x_data, flow_from_directory=False):
+        self.reduced_model = modify_model(model, layer_indexes_to_output=shunt_locations)
+        self.datagen = datagen_train
+        self.batch_size = batch_size
+        self.x_data = x_data
+        self.len_x_data = len_x_data
+        self.flow_from_directory = flow_from_directory
+
+    def __len__(self):
+        return self.len_x_data // self.batch_size
+
+    def __getitem__(self, index):
+
+        if self.flow_from_directory:
+            maps = self.reduced_model.predict(self.datagen.flow_from_directory(self.x_data, batch_size=self.batch_size), steps=1)[:-1]
+        else:
+            maps = self.reduced_model.predict(self.datagen.flow(self.x_data, batch_size=self.batch_size), steps=1)[:-1]
+
+        X = maps[0]
+        y = maps[1]
+
+        return X,y
+
 
 class Imagenet_generator(Sequence):
 
