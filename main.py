@@ -95,7 +95,7 @@ if __name__ == '__main__':
 
     # prepare data
     x_train = y_train = x_test = y_test = None
-    datagen = None
+    datagen_train = datagen_val = None
     flow_from_directory = False
     input_shape = None
 
@@ -118,18 +118,27 @@ if __name__ == '__main__':
             horizontal_flip=True)
         datagen.fit(x_train)
 
-        flow_from_directory = False
-
         print('CIFAR10 was loaded successfully!')
 
 
     if dataset_name == 'imagenet':
 
-        dataset_image_path = Path(dataset_path, "images")
+        dataset_val_image_path = Path(dataset_path, "val", "images")
+        dataset_train_image_path = Path(dataset_path, "train")
         dataset_ground_truth_file_path = Path(dataset_path, "val.txt")
-        flow_from_directory = True
+
         num_classes = 1000
         input_shape = (224,224,3)
+
+        dataget_val = Imagenet_generator(dataset_val_image_path, dataset_ground_truth_file_path, shuffle=False)
+
+        datagen_train = ImageDataGenerator(
+            featurewise_center=False,
+            featurewise_std_normalization=False,
+            rotation_range=0.0,
+            width_shift_range=0.2,
+            height_shift_range=0.2,
+            horizontal_flip=True)
 
         print('Imagenet was loaded successfully!')
 
@@ -178,7 +187,7 @@ if __name__ == '__main__':
     logging.info('#######################################################################################################')
     logging.info('')
     model_original.summary(print_fn=logger.info, line_length=150)
-    print('{} successfully created!'.format(model_type))
+    print('{} created successfully!'.format(model_type))
 
     flops_original = calculateFLOPs_model(model_original)
 
@@ -187,20 +196,17 @@ if __name__ == '__main__':
 
     if modes['train_original_model']:
         print('Train original model:')
-        if flow_from_directory:
-            history_original = model_original.fit(Imagenet_generator(dataset_image_path, dataset_ground_truth_file_path, batch_size=batch_size_original), epochs=epochs_original, validation_data=(x_test, y_test), verbose=1, callbacks=[callback_checkpoint, callback_learning_rate])
-        else:
-            history_original = model_original.fit(datagen.flow(x_train, y_train, batch_size=batch_size_original), epochs=epochs_original, validation_data=(x_test, y_test), verbose=1, callbacks=[callback_checkpoint, callback_learning_rate])
+        if dataset_name == 'imagenet':
+            history_original = model_original.fit(datagen_train.flow_from_directory(dataset_train_image_path, label_mode='categorical', shuffle=True, image_size=(224,224), batch_size=batch_size_original), epochs=epochs_original, validation_data=(x_test, y_test), verbose=1, callbacks=[callback_checkpoint, callback_learning_rate])
+        elif dataset_name == 'CIFAR10':
+            history_original = model_original.fit(datagen_train.flow(x_train, y_train, batch_size=batch_size_original), epochs=epochs_original, validation_data=(x_test, y_test), verbose=1, callbacks=[callback_checkpoint, callback_learning_rate])
         model_original.save_weights(str(Path(folder_name_logging, "original_model_weights.h5")))
-        save_history_plot(history_original, "original", folder_name_logging)
+        #save_history_plot(history_original, "original", folder_name_logging)
 
     # test original model
     print('Test original model')
-    if flow_from_directory:
-        prediction = model_original.predict(Imagenet_generator(dataset_image_path, dataset_ground_truth_file_path, shuffle=False, batch_size=1), batch_size=1, steps=1)
-        print(prediction[0][489:491])
-        print(keras.applications.imagenet_utils.decode_predictions(prediction))
-        val_loss_original, val_entropy_original, val_acc_original = model_original.evaluate(Imagenet_generator(dataset_image_path, dataset_ground_truth_file_path, shuffle=False), verbose=1)
+    if dataset_name == 'imagenet':
+        val_loss_original, val_entropy_original, val_acc_original = model_original.evaluate(datagen_val, verbose=1)
     else:
         val_loss_original, val_entropy_original, val_acc_original = model_original.evaluate(x_test, y_test, verbose=1)
     print('Loss: {:.5f}'.format(val_loss_original))
@@ -208,7 +214,11 @@ if __name__ == '__main__':
     print('Accuracy: {:.4f}'.format(val_acc_original))
 
     if modes['calc_knowledge_quotients']:
-        know_quot = get_knowledge_quotients(model=model_original, datagen=Imagenet_generator(dataset_image_path, dataset_ground_truth_file_path, shuffle=False), val_acc_model=val_acc_original)
+        if dataset_name == 'imagenet':
+            know_quot = get_knowledge_quotients(model=model_original, datagen=datagen_val, val_acc_model=val_acc_original)
+        elif dataset_name == 'CIFAR10':
+            know_quot = get_knowledge_quotients(model=model_original, datagen=(x_test, y_tes), val_acc_model=val_acc_original)
+
         logging.info('')
         logging.info('################# RESULT ###################')
         logging.info('')
