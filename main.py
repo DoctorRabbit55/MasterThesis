@@ -125,7 +125,7 @@ if __name__ == '__main__':
 
         dataset_val_image_path = Path(dataset_path, "val", "images")
         dataset_train_image_path = Path(dataset_path, "train")
-        dataset_ground_truth_file_path = Path(dataset_path, "val.txt")
+        dataset_ground_truth_file_path = Path(dataset_path, "val", "val.txt")
 
         num_classes = 1000
         input_shape = (224,224,3)
@@ -197,7 +197,7 @@ if __name__ == '__main__':
     if modes['train_original_model']:
         print('Train original model:')
         if dataset_name == 'imagenet':
-            history_original = model_original.fit(datagen_train.flow_from_directory(dataset_train_image_path, label_mode='categorical', shuffle=True, image_size=(224,224), batch_size=batch_size_original), epochs=epochs_original, validation_data=(x_test, y_test), verbose=1, callbacks=[callback_checkpoint, callback_learning_rate])
+            history_original = model_original.fit(datagen_train.flow_from_directory(dataset_train_image_path, shuffle=True, target_size=(224,224), batch_size=batch_size_original), epochs=epochs_original, validation_data=(x_test, y_test), verbose=1, callbacks=[callback_checkpoint, callback_learning_rate])
         elif dataset_name == 'CIFAR10':
             history_original = model_original.fit(datagen_train.flow(x_train, y_train, batch_size=batch_size_original), epochs=epochs_original, validation_data=(x_test, y_test), verbose=1, callbacks=[callback_checkpoint, callback_learning_rate])
         model_original.save_weights(str(Path(folder_name_logging, "original_model_weights.h5")))
