@@ -176,14 +176,17 @@ def modify_model(model, layer_indexes_to_delete=[], layer_indexes_to_output=[], 
 
     return model_reduced
 
-def extract_feature_maps(model, x_data, locations, x_data_path=None):
+def extract_feature_maps(model, x_data, locations, x_data_path=None, data_count=None):
 
     model = modify_model(model, layer_indexes_to_output=locations)
 
     if x_data is np.ndarray:
         predictions = model.predict(x_data, verbose=1)
     elif isinstance(x_data, keras.utils.Sequence):
-        predictions = model.predict(x_data, verbose=1)
+        if data_count:
+            predictions = model.predict(x_data, verbose=1, steps=data_count//32)
+        else:
+            predictions = model.predict(x_data, verbose=1)
     else:
         predictions = model.predict(x_data.flow_from_directory(x_data_path, batch_size=32, subset='training'))
 
