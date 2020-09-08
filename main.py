@@ -295,31 +295,37 @@ if __name__ == '__main__':
         fm1_train = fm2_train = fm1_test = fm2_test = None
         
         if dataset_name == 'imagenet':
-            if os.path.isfile(Path(shunt_params['featuremapspath'], "fm1_train_{}_{}.npy".format(loc1, loc2))):
-                fm1_train = np.load(Path(shunt_params['featuremapspath'], "fm1_train_{}_{}.npy".format(loc1, loc2)))
-                fm2_train = np.load(Path(shunt_params['featuremapspath'], "fm2_train_{}_{}.npy".format(loc1, loc2)))
-                fm1_test = np.load(Path(shunt_params['featuremapspath'], "fm1_test_{}_{}.npy".format(loc1, loc2)))
-                fm2_test = np.load(Path(shunt_params['featuremapspath'], "fm2_test_{}_{}.npy".format(loc1, loc2)))
-                print('Feature maps loaded successfully!')
-            else:              
-                print('Feature maps extracting started:')
 
-                tmp_datagen_train = ImageDataGenerator(validation_split=125/130)
-                
-                (fm1_train, fm2_train)  = extract_feature_maps(model_original, tmp_datagen_train, [loc1-1, loc2], x_data_path=dataset_train_image_path) # -1 since we need the input of the layer
-                (fm1_test, fm2_test) = extract_feature_maps(model_original, datagen_val, [loc1-1, loc2], data_count=10000) # -1 since we need the input of the layer
+            for i in range(4):
 
-                np.save(Path(shunt_params['featuremapspath'], "fm1_train_{}_{}".format(loc1, loc2)), fm1_train)
-                np.save(Path(shunt_params['featuremapspath'], "fm2_train_{}_{}".format(loc1, loc2)), fm2_train)
-                np.save(Path(shunt_params['featuremapspath'], "fm1_test_{}_{}".format(loc1, loc2)), fm1_test)
-                np.save(Path(shunt_params['featuremapspath'], "fm2_test_{}_{}".format(loc1, loc2)), fm2_test)
+                if os.path.isfile(Path(shunt_params['featuremapspath'], "fm1_train_{}_{}.npy".format(loc1, loc2))):
+                    fm1_train = np.load(Path(shunt_params['featuremapspath'], "fm1_train_{}_{}.npy".format(loc1, loc2)))
+                    fm2_train = np.load(Path(shunt_params['featuremapspath'], "fm2_train_{}_{}.npy".format(loc1, loc2)))
+                    fm1_test = np.load(Path(shunt_params['featuremapspath'], "fm1_test_{}_{}.npy".format(loc1, loc2)))
+                    fm2_test = np.load(Path(shunt_params['featuremapspath'], "fm2_test_{}_{}.npy".format(loc1, loc2)))
+                    print('Feature maps loaded successfully!')
+                else:              
+                    print('Feature maps extracting started:')
 
-                logging.info('')
-                logging.info('Featuremaps saved to {}'.format(shunt_params['featuremapspath']))
+                    tmp_datagen_train = ImageDataGenerator().flow_from_directory(dataset_train_image_path, batch_size=32, target_size=(224,224))
+                    
+                    (fm1_train, fm2_train)  = extract_feature_maps(model_original, tmp_datagen_train, [loc1-1, loc2], x_data_path=dataset_train_image_path, data_count=1000) # -1 since we need the input of the layer
+                    (fm1_test, fm2_test) = extract_feature_maps(model_original, datagen_val, [loc1-1, loc2], data_count=1000) # -1 since we need the input of the layer
 
-            data_train = (fm1_train, fm2_train)
-            data_val = (fm1_test, fm2_test)            
+                    #np.save(Path(shunt_params['featuremapspath'], "fm1_train_{}_{}".format(loc1, loc2)), fm1_train)
+                    #np.save(Path(shunt_params['featuremapspath'], "fm2_train_{}_{}".format(loc1, loc2)), fm2_train)
+                    #np.save(Path(shunt_params['featuremapspath'], "fm1_test_{}_{}".format(loc1, loc2)), fm1_test)
+                    #np.save(Path(shunt_params['featuremapspath'], "fm2_test_{}_{}".format(loc1, loc2)), fm2_test)
+
+                    logging.info('')
+                    logging.info('Featuremaps saved to {}'.format(shunt_params['featuremapspath']))
+
+                data_train = (fm1_train, fm2_train)
+                data_val = (fm1_test, fm2_test)            
             
+                history_shunt = model_shunt.fit(data_train[0], y=data_train[1], batch_size=batch_size_shunt, epochs=epochs_shunt, validation_data=data_val, verbose=1, callbacks=[callback_checkpoint, callback_learning_rate])
+
+
         elif dataset_name == 'CIFAR10':
             if os.path.isfile(Path(shunt_params['featuremapspath'], "fm1_train_{}_{}.npy".format(loc1, loc2))):
                 fm1_train = np.load(Path(shunt_params['featuremapspath'], "fm1_train_{}_{}.npy".format(loc1, loc2)))
@@ -347,6 +353,8 @@ if __name__ == '__main__':
             print('Train shunt model:')
             history_shunt = model_shunt.fit(data_train[0], y=data_train[1], batch_size=batch_size_shunt, epochs=epochs_shunt, validation_data=data_val, verbose=1, callbacks=[callback_checkpoint, callback_learning_rate])
             #save_history_plot(history_shunt, "shunt", folder_name_logging)
+
+        model_shunt.load_weights(str(Path(folder_name_logging, "shunt_model_weights.h5")))
 
         if modes['test_shunt_model']:
             print('Test shunt model')
@@ -595,7 +603,8 @@ if __name__ == '__main__':
                 print('Entropy: {:.5f}'.format(val_entropy_finetuned))
                 print('Accuracy: {}'.format(val_acc_finetuned))
 
-        model_final.load_weights(str(Path(folder_name_logging, "final_model_weights.h5")))
+                model_final.load_weights(str(Path(folder_name_logging, "final_model_weights.h5")))
+        
         logging.info('')
         logging.info('Final model weights saved to {}'.format(folder_name_logging))
 
