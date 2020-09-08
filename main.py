@@ -295,8 +295,8 @@ if __name__ == '__main__':
         fm1_train = fm2_train = fm1_test = fm2_test = None
         
         if dataset_name == 'imagenet':
-            data_train = feature_map_generator(model_original, batch_size=batch_size_shunt, datagen_train=datagen_train, x_data=x_train, len_x_data = len_train_data, shunt_locations=(loc1-1,loc2), flow_from_directory=True)
-            data_val = feature_map_generator(model_original, batch_size=batch_size_shunt, datagen_train=datagen_val, x_data=x_test, len_x_data = len_val_data, shunt_locations=(loc1-1,loc2), flow_from_directory=True)
+            data_train = feature_map_generator(model_original, batch_size=batch_size_shunt, datagen_train=datagen_train, x_data=dataset_train_image_path, len_x_data = len_train_data, shunt_locations=(loc1-1,loc2), flow_from_directory=True)
+            data_val = feature_map_generator(model_original, batch_size=batch_size_shunt, datagen_train=datagen_val, x_data=dataset_val_image_path, len_x_data = len_val_data, shunt_locations=(loc1-1,loc2), flow_from_directory=True)
         elif dataset_name == 'CIFAR10':
             if os.path.isfile(Path(shunt_params['featuremapspath'], "fm1_train_{}_{}.npy".format(loc1, loc2))):
                 fm1_train = np.load(Path(shunt_params['featuremapspath'], "fm1_train_{}_{}.npy".format(loc1, loc2)))
