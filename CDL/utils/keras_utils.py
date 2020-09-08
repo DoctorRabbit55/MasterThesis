@@ -180,7 +180,7 @@ def extract_feature_maps(model, x_data, locations, x_data_path=None, data_count=
 
     model = modify_model(model, layer_indexes_to_output=locations)
 
-    if x_data is np.ndarray:
+    if isinstance(x_data, np.ndarray):
         predictions = model.predict(x_data, verbose=1)
     elif isinstance(x_data, keras.utils.Sequence):
         if data_count:
@@ -188,7 +188,7 @@ def extract_feature_maps(model, x_data, locations, x_data_path=None, data_count=
         else:
             predictions = model.predict(x_data, verbose=1)
     else:
-        predictions = model.predict(x_data.flow_from_directory(x_data_path, batch_size=32, subset='training'))
+        predictions = model.predict(x_data.flow_from_directory(x_data_path, batch_size=32, subset='training', target_size=(224,224)), verbose=1)
 
     return predictions[:-1]
 
