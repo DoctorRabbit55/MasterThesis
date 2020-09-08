@@ -306,7 +306,7 @@ if __name__ == '__main__':
 
                 tmp_datagen_train = ImageDataGenerator(validation_split=129/130)
 
-                (fm1_train, fm2_train)  = extract_feature_maps(model_original, tmp_datagen_train, [loc1-1, loc2], x_data_dir=dataset_train_image_path) # -1 since we need the input of the layer
+                (fm1_train, fm2_train)  = extract_feature_maps(model_original, tmp_datagen_train, [loc1-1, loc2], x_data_path=dataset_train_image_path) # -1 since we need the input of the layer
                 (fm1_test, fm2_test) = extract_feature_maps(model_original, datagen_val, [loc1-1, loc2]) # -1 since we need the input of the layer
 
                 np.save(Path(shunt_params['featuremapspath'], "fm1_train_{}_{}".format(loc1, loc2)), fm1_train)
