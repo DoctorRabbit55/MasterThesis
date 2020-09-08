@@ -345,7 +345,7 @@ if __name__ == '__main__':
 
         if modes['train_shunt_model']:
             print('Train shunt model:')
-            history_shunt = model_shunt.fit(data_train, batch_size=batch_size_shunt, epochs=epochs_shunt, validation_data=data_val, verbose=1, callbacks=[callback_checkpoint, callback_learning_rate])
+            history_shunt = model_shunt.fit(data_train[0], y=data_train[1], batch_size=batch_size_shunt, epochs=epochs_shunt, validation_data=data_val, verbose=1, callbacks=[callback_checkpoint, callback_learning_rate])
             #save_history_plot(history_shunt, "shunt", folder_name_logging)
 
         if modes['test_shunt_model']:
