@@ -1,3 +1,4 @@
+import tensorflow as tf
 from keras.utils import Sequence, to_categorical
 from keras.preprocessing import image
 from keras.applications import imagenet_utils
@@ -11,6 +12,38 @@ import numpy as np
 import matplotlib.pyplot as plt
 import cv2
 
+def preprocess_feature_maps(file_path, model):
+
+    #img = tf.io.read_file(file_path)
+    #img = tf.image.decode_jpeg(img)
+    #img = tf.image.resize(img, (224,224))
+    #img = keras.applications.mobilenet.preprocess_input(img)
+
+    #maps = model.predict(img)[:-1]
+    maps = model.predict(file_path)[:-1]
+
+    return maps[0], maps[1]
+
+
+def create_feature_map_ds(model, shunt_locations, epochs, batch_size, glob_pattern):
+    tf.compat.v1.enable_eager_execution()
+    model_reduced = modify_model(model, layer_indexes_to_output=shunt_locations)
+
+    ds = tf.data.Dataset.from_tensors(glob_pattern)
+    #if glob_pattern is np.ndarray:
+    #    ds = tf.data.Dataset.from_tensors(glob_pattern)
+    #else:
+    #    ds = tf.data.Dataset.list_files(glob_pattern)
+
+    num_threads = 5 
+    ds = ds.map(lambda x: preprocess_feature_maps(x, model_reduced), num_parallel_calls=num_threads)
+
+    ds = ds.shuffle(buffer_size=10000)
+    ds = ds.repeat(epochs)
+    ds = ds.batch(batch_size)
+    ds = ds.prefetch(tf.data.experimental.AUTOTUNE)
+
+    return ds
 
 class feature_map_generator(Sequence):
 
