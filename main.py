@@ -453,10 +453,11 @@ if __name__ == '__main__':
             logging.info('{}: loss: {:.5f}, acc: {:.5f}, time: {:.1f} min'.format(strategy, val_loss_finetuned, val_acc_finetuned, (train_stop-train_start)/60))
 
     else:
-        pass
-        '''
+        
+        
         if training_final_model['finetune_strategy'] == 'feature_maps':
-
+            pass
+            '''
             residual_layer_dic, _ = identify_residual_layer_indexes(model_final)
             #residual_layer_dic = {}
             residual_layer_dic[len(model_final.layers)-1] = len(model_final.layers)-2
@@ -517,7 +518,7 @@ if __name__ == '__main__':
                 print('Loss: {}'.format(val_loss_finetuned))
                 print('Entropy: {:.5f}'.format(val_entropy_finetuned))
                 print('Accuracy: {}'.format(val_acc_finetuned))
-        '''
+            '''
         else:
 
             if training_final_model['finetune_strategy'] == 'unfreeze_shunt':
