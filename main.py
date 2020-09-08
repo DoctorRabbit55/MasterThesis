@@ -296,7 +296,13 @@ if __name__ == '__main__':
         
         if dataset_name == 'imagenet':
 
-            for i in range(4):
+            tmp_datagen_train = ImageDataGenerator().flow_from_directory(dataset_train_image_path, batch_size=32, target_size=(224,224))
+
+            for i in range(len_train_data // 10000 + 1):
+
+                print("Step {} of {}".format(i, len_train_data // 10000 + 1))
+
+                tmp_datagen_train.batch_index = i * 10000//32               
 
                 if os.path.isfile(Path(shunt_params['featuremapspath'], "fm1_train_{}_{}.npy".format(loc1, loc2))):
                     fm1_train = np.load(Path(shunt_params['featuremapspath'], "fm1_train_{}_{}.npy".format(loc1, loc2)))
@@ -307,10 +313,9 @@ if __name__ == '__main__':
                 else:              
                     print('Feature maps extracting started:')
 
-                    tmp_datagen_train = ImageDataGenerator().flow_from_directory(dataset_train_image_path, batch_size=32, target_size=(224,224))
                     
-                    (fm1_train, fm2_train)  = extract_feature_maps(model_original, tmp_datagen_train, [loc1-1, loc2], x_data_path=dataset_train_image_path, data_count=1000) # -1 since we need the input of the layer
-                    (fm1_test, fm2_test) = extract_feature_maps(model_original, datagen_val, [loc1-1, loc2], data_count=1000) # -1 since we need the input of the layer
+                    (fm1_train, fm2_train)  = extract_feature_maps(model_original, tmp_datagen_train, [loc1-1, loc2], x_data_path=dataset_train_image_path, data_count=10000) # -1 since we need the input of the layer
+                    (fm1_test, fm2_test) = extract_feature_maps(model_original, datagen_val, [loc1-1, loc2], data_count=10000) # -1 since we need the input of the layer
 
                     #np.save(Path(shunt_params['featuremapspath'], "fm1_train_{}_{}".format(loc1, loc2)), fm1_train)
                     #np.save(Path(shunt_params['featuremapspath'], "fm2_train_{}_{}".format(loc1, loc2)), fm2_train)

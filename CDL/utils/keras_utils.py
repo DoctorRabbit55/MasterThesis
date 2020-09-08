@@ -178,18 +178,21 @@ def modify_model(model, layer_indexes_to_delete=[], layer_indexes_to_output=[], 
 
 def extract_feature_maps(model, x_data, locations, x_data_path=None, data_count=None):
 
+    from CDL.utils.custom_generators import Imagenet_generator
     model = modify_model(model, layer_indexes_to_output=locations)
 
     if isinstance(x_data, np.ndarray):
         predictions = model.predict(x_data, verbose=1)
-    elif isinstance(x_data, keras.utils.Sequence):
+    elif isinstance(x_data, Imagenet_generator):
         if data_count:
             predictions = model.predict(x_data, verbose=1, steps=data_count//32)
         else:
             predictions = model.predict(x_data, verbose=1)
     else:
         if data_count:
+            print("batch: ", x_data.batch_index)
             predictions = model.predict(x_data, verbose=1, steps=data_count//32)
+            print("batch: ", x_data.batch_index)
         else:
             predictions = model.predict(x_data, verbose=1)
 
