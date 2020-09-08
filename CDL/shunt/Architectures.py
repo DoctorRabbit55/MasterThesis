@@ -2,6 +2,8 @@ from keras.layers import Input, Conv2D, DepthwiseConv2D, BatchNormalization, ReL
 from keras import Model
 from keras import regularizers
 
+import numpy as np
+
 def createArch1(input_shape, output_shape, num_stride_layers):
 
     input_net = Input(shape=input_shape)
@@ -58,10 +60,10 @@ def createArch4(input_shape, output_shape, num_stride_layers):
 def createShunt(input_shape, output_shape, arch=1):
 
     assert(arch > -1 and arch < 10)
-    assert(input_shape[0] / output_shape[0] % 2 == 0)
+    assert(np.sqrt(input_shape[0] / output_shape[0] == int(np.sqrt(input_shape[0] / output_shape[0])))
 
     model_shunt = None
-    num_stride_layers = input_shape[0] / output_shape[0]
+    num_stride_layers = np.sqrt(input_shape[0] / output_shape[0])
 
     # list of maximum strides for each architecture
     max_stride_list = {1:2, 4:1}
