@@ -143,7 +143,7 @@ if __name__ == '__main__':
         len_train_data = 1281167
         len_val_data = 50000
 
-        dataget_val = Imagenet_generator(dataset_val_image_path, dataset_ground_truth_file_path, shuffle=False)
+        datagen_val = Imagenet_generator(dataset_val_image_path, dataset_ground_truth_file_path, shuffle=False)
 
         datagen_train = ImageDataGenerator(
             featurewise_center=False,
