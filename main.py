@@ -295,8 +295,31 @@ if __name__ == '__main__':
         fm1_train = fm2_train = fm1_test = fm2_test = None
         
         if dataset_name == 'imagenet':
-            data_train = feature_map_generator(model_original, batch_size=batch_size_shunt, datagen_train=datagen_train, x_data=dataset_train_image_path, len_x_data = len_train_data, shunt_locations=(loc1-1,loc2), flow_from_directory=True)
-            data_val = feature_map_generator(model_original, batch_size=batch_size_shunt, datagen_train=datagen_val, x_data=dataset_val_image_path, len_x_data = len_val_data, shunt_locations=(loc1-1,loc2), flow_from_directory=True)
+            if os.path.isfile(Path(shunt_params['featuremapspath'], "fm1_train_{}_{}.npy".format(loc1, loc2))):
+                fm1_train = np.load(Path(shunt_params['featuremapspath'], "fm1_train_{}_{}.npy".format(loc1, loc2)))
+                fm2_train = np.load(Path(shunt_params['featuremapspath'], "fm2_train_{}_{}.npy".format(loc1, loc2)))
+                fm1_test = np.load(Path(shunt_params['featuremapspath'], "fm1_test_{}_{}.npy".format(loc1, loc2)))
+                fm2_test = np.load(Path(shunt_params['featuremapspath'], "fm2_test_{}_{}.npy".format(loc1, loc2)))
+                print('Feature maps loaded successfully!')
+            else:              
+                print('Feature maps extracting started:')
+
+                tmp_datagen_train = ImageDataGenerator(validation_split=129/130)
+
+                (fm1_train, fm2_train)  = extract_feature_maps(model_original, tmp_datagen_train, [loc1-1, loc2], x_data_dir=dataset_train_image_path) # -1 since we need the input of the layer
+                (fm1_test, fm2_test) = extract_feature_maps(model_original, datagen_val, [loc1-1, loc2]) # -1 since we need the input of the layer
+
+                np.save(Path(shunt_params['featuremapspath'], "fm1_train_{}_{}".format(loc1, loc2)), fm1_train)
+                np.save(Path(shunt_params['featuremapspath'], "fm2_train_{}_{}".format(loc1, loc2)), fm2_train)
+                np.save(Path(shunt_params['featuremapspath'], "fm1_test_{}_{}".format(loc1, loc2)), fm1_test)
+                np.save(Path(shunt_params['featuremapspath'], "fm2_test_{}_{}".format(loc1, loc2)), fm2_test)
+
+                logging.info('')
+                logging.info('Featuremaps saved to {}'.format(shunt_params['featuremapspath']))
+
+            data_train = (fm1_train, fm2_train)
+            data_val = (fm1_test, fm2_test)            
+            
         elif dataset_name == 'CIFAR10':
             if os.path.isfile(Path(shunt_params['featuremapspath'], "fm1_train_{}_{}.npy".format(loc1, loc2))):
                 fm1_train = np.load(Path(shunt_params['featuremapspath'], "fm1_train_{}_{}.npy".format(loc1, loc2)))
