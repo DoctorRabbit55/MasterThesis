@@ -11,6 +11,7 @@ import numpy as np
 from CDL.models.MobileNet_v2 import create_mobilenet_v2
 from CDL.models.MobileNet_v3 import create_mobilenet_v3
 from CDL.shunt import Architectures
+from CDL.shunt.create_shunt_trainings_model import create_shunt_trainings_model
 from CDL.utils.calculateFLOPS import calculateFLOPs_model, calculateFLOPs_blocks
 from CDL.utils.dataset_utils import *
 from CDL.utils.get_knowledge_quotients import get_knowledge_quotients
@@ -109,6 +110,7 @@ if __name__ == '__main__':
         num_classes = 10
         len_train_data = 50000
         len_val_data = 10000
+        feature_maps_fit_in_ram = True
 
         datagen_train = ImageDataGenerator(
             featurewise_center=False, 
@@ -142,6 +144,8 @@ if __name__ == '__main__':
         input_shape = (224,224,3)
         len_train_data = 1281167
         len_val_data = 50000
+
+        feature_maps_fit_in_ram = False
 
         datagen_val = Imagenet_generator(dataset_val_image_path, dataset_ground_truth_file_path, shuffle=False)
 
@@ -288,6 +292,14 @@ if __name__ == '__main__':
     callback_checkpoint = keras.callbacks.ModelCheckpoint(str(Path(folder_name_logging, "shunt_model_weights.h5")), save_best_only=True, monitor='val_mean_squared_error', mode='min', save_weights_only=True)
     callback_learning_rate = LearningRateSchedulerCallback(epochs_first_cycle=epochs_first_cycle_shunt, learning_rate_second_cycle=learning_rate_second_cycle_shunt)
 
+
+    model_training_shunt = create_shunt_trainings_model(model_original, model_shunt, (loc1, loc2))
+    model_training_shunt.compile(loss=keras.losses.mean_squared_error, optimizer=keras.optimizers.Adam(learning_rate=learning_rate_first_cycle_shunt, decay=0.0), metrics=[keras.metrics.MeanSquaredError()])
+
+    train_dummy_data = np.zeros((len(x_train), batch_size_shunt,))
+    val_dummy_data = np.zeros((len(x_test),))
+    model_training_shunt.fit(x_train, train_dummy_data, batch_size=batch_size_shunt, epochs=epochs_shunt, validation_data=(x_test, val_dummy_data), verbose=1)
+
     # Feature maps
 
     if modes['test_shunt_model'] or modes['train_shunt_model']:
@@ -296,39 +308,13 @@ if __name__ == '__main__':
         
         if dataset_name == 'imagenet':
 
-            tmp_datagen_train = ImageDataGenerator().flow_from_directory(dataset_train_image_path, batch_size=32, target_size=(224,224))
+            model_training_shunt = create_shunt_trainings_model(model_original, model_shunt, (loc1, loc2))
+            model_training_shunt.compile(loss=keras.losses.mean_squared_error, optimizer=keras.optimizers.Adam(learning_rate=learning_rate_first_cycle_shunt, decay=0.0), metrics=[keras.metrics.MeanSquaredError()])
 
-            for i in range(len_train_data // 10000 + 1):
-
-                print("Step {} of {}".format(i, len_train_data // 10000 + 1))
-
-                tmp_datagen_train.batch_index = i * 10000//32               
-
-                if os.path.isfile(Path(shunt_params['featuremapspath'], "fm1_train_{}_{}.npy".format(loc1, loc2))):
-                    fm1_train = np.load(Path(shunt_params['featuremapspath'], "fm1_train_{}_{}.npy".format(loc1, loc2)))
-                    fm2_train = np.load(Path(shunt_params['featuremapspath'], "fm2_train_{}_{}.npy".format(loc1, loc2)))
-                    fm1_test = np.load(Path(shunt_params['featuremapspath'], "fm1_test_{}_{}.npy".format(loc1, loc2)))
-                    fm2_test = np.load(Path(shunt_params['featuremapspath'], "fm2_test_{}_{}.npy".format(loc1, loc2)))
-                    print('Feature maps loaded successfully!')
-                else:              
-                    print('Feature maps extracting started:')
-
-                    
-                    (fm1_train, fm2_train)  = extract_feature_maps(model_original, tmp_datagen_train, [loc1-1, loc2], x_data_path=dataset_train_image_path, data_count=10000) # -1 since we need the input of the layer
-                    (fm1_test, fm2_test) = extract_feature_maps(model_original, datagen_val, [loc1-1, loc2], data_count=10000) # -1 since we need the input of the layer
-
-                    #np.save(Path(shunt_params['featuremapspath'], "fm1_train_{}_{}".format(loc1, loc2)), fm1_train)
-                    #np.save(Path(shunt_params['featuremapspath'], "fm2_train_{}_{}".format(loc1, loc2)), fm2_train)
-                    #np.save(Path(shunt_params['featuremapspath'], "fm1_test_{}_{}".format(loc1, loc2)), fm1_test)
-                    #np.save(Path(shunt_params['featuremapspath'], "fm2_test_{}_{}".format(loc1, loc2)), fm2_test)
-
-                    logging.info('')
-                    logging.info('Featuremaps saved to {}'.format(shunt_params['featuremapspath']))
-
-                data_train = (fm1_train, fm2_train)
-                data_val = (fm1_test, fm2_test)            
+            train_dummy_data = np.zeros((len_train_data, batch_size_shunt,))
+            val_dummy_data = np.zeros((len_val_data,))
             
-                history_shunt = model_shunt.fit(data_train[0], y=data_train[1], batch_size=batch_size_shunt, epochs=epochs_shunt, validation_data=data_val, verbose=1, callbacks=[callback_checkpoint, callback_learning_rate])
+            history_shunt = model_training_shunt.fit(datagen_train, y=train_dummy_data, batch_size=batch_size_shunt, epochs=epochs_shunt, validation_data=(datagen_val, val_dummy_data), verbose=1, callbacks=[callback_checkpoint, callback_learning_rate])
 
 
         elif dataset_name == 'CIFAR10':

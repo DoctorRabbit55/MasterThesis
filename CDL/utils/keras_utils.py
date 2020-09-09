@@ -176,6 +176,7 @@ def modify_model(model, layer_indexes_to_delete=[], layer_indexes_to_output=[], 
 
     return model_reduced
 
+
 def extract_feature_maps(model, x_data, locations, x_data_path=None, data_count=None):
 
     from CDL.utils.custom_generators import Imagenet_generator
