@@ -292,14 +292,6 @@ if __name__ == '__main__':
     callback_checkpoint = keras.callbacks.ModelCheckpoint(str(Path(folder_name_logging, "shunt_model_weights.h5")), save_best_only=True, monitor='val_mean_squared_error', mode='min', save_weights_only=True)
     callback_learning_rate = LearningRateSchedulerCallback(epochs_first_cycle=epochs_first_cycle_shunt, learning_rate_second_cycle=learning_rate_second_cycle_shunt)
 
-
-    model_training_shunt = create_shunt_trainings_model(model_original, model_shunt, (loc1, loc2))
-    model_training_shunt.compile(loss=keras.losses.mean_squared_error, optimizer=keras.optimizers.Adam(learning_rate=learning_rate_first_cycle_shunt, decay=0.0), metrics=[keras.metrics.MeanSquaredError()])
-
-    train_dummy_data = np.zeros((len(x_train), batch_size_shunt,))
-    val_dummy_data = np.zeros((len(x_test),))
-    model_training_shunt.fit(x_train, train_dummy_data, batch_size=batch_size_shunt, epochs=epochs_shunt, validation_data=(x_test, val_dummy_data), verbose=1)
-
     # Feature maps
 
     if modes['test_shunt_model'] or modes['train_shunt_model']:
