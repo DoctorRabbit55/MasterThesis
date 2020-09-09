@@ -115,16 +115,28 @@ def modify_model(model, layer_indexes_to_delete=[], layer_indexes_to_output=[], 
                 should_delete = True
                 break
 
+
         if should_delete:
             if shunt_to_insert and not got_shunt_inserted:
-                input_x = x
-                for shunt_layer in shunt_to_insert.layers[1:]:
-                    print(shunt_layer.name)
-                    if isinstance(shunt_layer, Add):
-                        x = shunt_layer([x, input_x])
+                add_input_index_shunt_dic, mult_input_index_shunt_dic = identify_residual_layer_indexes(shunt_to_insert)
+                add_input_shunt_tensors = {}
+                mult_input_shunt_tensors = {}
+                for j, shunt_layer in enumerate(shunt_to_insert.layers[1:]):
+                    j = j + 1
+                    if isinstance(shunt_layer, Multiply):
+                        second_input_index = mult_input_index_shunt_dic[j]
+                        x = shunt_layer([x, mult_input_shunt_tensors[second_input_index]])
+                    elif isinstance(shunt_layer, Add):
+                        second_input_index = add_input_index_shunt_dic[j]
+                        x = shunt_layer([x, add_input_shunt_tensors[second_input_index]])
                     else:
                         x = shunt_layer(x)
-                    shunt_output = x
+                    if j in add_input_index_shunt_dic.values():
+                        add_input_shunt_tensors[j] = x
+                    if j in mult_input_index_shunt_dic.values():
+                        mult_input_shunt_tensors[j] = x
+                
+                shunt_output = x
                 got_shunt_inserted = True
             continue
 
