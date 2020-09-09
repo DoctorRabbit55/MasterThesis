@@ -76,6 +76,7 @@ if __name__ == '__main__':
 
     shunt_params = {}
     shunt_params['arch'] = config['SHUNT'].getint('arch')
+    shunt_params['use_se'] = config['SHUNT'].getboolean('use_squeeze_and_excite')
     shunt_params['locations'] = tuple(map(int, config['SHUNT']['location'].split(',')))
     shunt_params['from_file'] = config['SHUNT'].getboolean('from file')
     shunt_params['filepath'] = config['SHUNT']['filepath']
@@ -225,7 +226,7 @@ if __name__ == '__main__':
     '''
     print('Test original model')
     if dataset_name == 'imagenet':
-        val_loss_original, val_entropy_original, val_acc_original = model_original.evaluate(datagen_val, verbose=1)
+        val_loss_original, val_entropy_original, val_acc_original = model_original.evaluate(datagen_val, verbose=1, use_multiprocessing=True, workers=32, max_queue_size=64)
     elif dataset_name == 'CIFAR10':
         val_loss_original, val_entropy_original, val_acc_original = model_original.evaluate(x_test, y_test, verbose=1)
     print('Loss: {:.5f}'.format(val_loss_original))
@@ -261,7 +262,7 @@ if __name__ == '__main__':
         input_shape_shunt = model_original.get_layer(index=loc1).input_shape[1:]
         output_shape_shunt = model_original.get_layer(index=loc2).output_shape[1:]
 
-        model_shunt = Architectures.createShunt(input_shape_shunt, output_shape_shunt, arch=shunt_params['arch'])
+        model_shunt = Architectures.createShunt(input_shape_shunt, output_shape_shunt, arch=shunt_params['arch'], use_se=shunt_params['use_se'])
     
     logging.info('')
     logging.info('#######################################################################################################')
@@ -308,7 +309,6 @@ if __name__ == '__main__':
 
             history_shunt = model_training_shunt.fit(zip(datagen_train.flow_from_directory(dataset_train_image_path, class_mode=None, shuffle=True, target_size=(224,224), batch_size=batch_size_shunt), train_dummy_data), epochs=epochs_shunt, steps_per_epoch=len_train_data//batch_size_shunt, validation_data=datagen_val_dummy, verbose=1, callbacks=[callback_checkpoint, callback_learning_rate],
                                                      use_multiprocessing=True, workers=32, max_queue_size=64)
-
 
         elif dataset_name == 'CIFAR10':
             if os.path.isfile(Path(shunt_params['featuremapspath'], "fm1_train_{}_{}.npy".format(loc1, loc2))):
