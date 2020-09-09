@@ -18,7 +18,7 @@ from CDL.utils.get_knowledge_quotients import get_knowledge_quotients
 from CDL.utils.generic_utils import *
 from CDL.utils.keras_utils import extract_feature_maps, modify_model, identify_residual_layer_indexes
 from CDL.utils.custom_callbacks import UnfreezeLayersCallback, LearningRateSchedulerCallback
-from CDL.utils.custom_generators import Imagenet_generator, feature_map_generator
+from CDL.utils.custom_generators import Imagenet_generator, Imagenet_train_shunt_generator
 
 import tensorflow as tf
 from keras.datasets import cifar10
@@ -304,9 +304,9 @@ if __name__ == '__main__':
             model_training_shunt.compile(loss=keras.losses.mean_squared_error, optimizer=keras.optimizers.Adam(learning_rate=learning_rate_first_cycle_shunt, decay=0.0), metrics=[keras.metrics.MeanSquaredError()])
 
             train_dummy_data = np.zeros((len_train_data, batch_size_shunt,))
-            val_dummy_data = np.zeros((len_val_data,))
-            
-            history_shunt = model_training_shunt.fit(zip(datagen_train.flow_from_directory(dataset_train_image_path, class_mode=None, shuffle=True, target_size=(224,224), batch_size=batch_size_shunt), train_dummy_data), epochs=epochs_shunt, validation_data=(datagen_val, val_dummy_data), verbose=1, callbacks=[callback_checkpoint, callback_learning_rate])
+            datagen_val = Imagenet_train_shunt_generator(dataset_val_image_path, dataset_ground_truth_file_path, shuffle=False)
+
+            history_shunt = model_training_shunt.fit(zip(datagen_train.flow_from_directory(dataset_train_image_path, class_mode=None, shuffle=True, target_size=(224,224), batch_size=batch_size_shunt), train_dummy_data), epochs=epochs_shunt, steps=len_train_data//batch_size_shunt, validation_data=(datagen_val, val_dummy_data), verbose=1, callbacks=[callback_checkpoint, callback_learning_rate])
 
 
         elif dataset_name == 'CIFAR10':
