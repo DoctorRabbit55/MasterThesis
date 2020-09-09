@@ -275,9 +275,9 @@ if __name__ == '__main__':
     logging.info('')
     logging.info('Shunt model saved to {}'.format(folder_name_logging))
     
-    if shunt_params['pretrained']:
-        model_shunt.load_weights(shunt_params['weightspath'])
-        print('Shunt weights loaded successfully!')
+    #if shunt_params['pretrained']:
+    #    model_shunt.load_weights(shunt_params['weightspath'])
+    #    print('Shunt weights loaded successfully!')
 
     flops_shunt = calculateFLOPs_model(model_shunt)
 
@@ -302,6 +302,10 @@ if __name__ == '__main__':
         if dataset_name == 'imagenet':
 
             model_training_shunt = create_shunt_trainings_model(model_original, model_shunt, (loc1, loc2))
+            if shunt_params['pretrained']:
+                model_training_shunt.load_weights(shunt_params['weightspath'])
+                print('Shunt weights loaded successfully!')
+
             model_training_shunt.compile(loss=keras.losses.mean_absolut_error, optimizer=keras.optimizers.Adam(learning_rate=learning_rate_first_cycle_shunt, decay=0.0), metrics=[keras.metrics.MeanAbsoluteError()])
 
             train_dummy_data = np.zeros((len_train_data, batch_size_shunt,))
