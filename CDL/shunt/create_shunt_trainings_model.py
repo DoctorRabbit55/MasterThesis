@@ -48,11 +48,11 @@ def create_shunt_trainings_model(model, model_shunt, shunt_locations):
             shunt_input = x
 
     output_original_model = x
-    output_original_model = Reshape((int_shape(output_original_model)[1]*int_shape(output_original_model)[2]*int_shape(output_original_model)[3]))(output_original_model)
+    output_original_model = Reshape((-1))(output_original_model)
     output_original_model = keras.backend.l2_normalize(output_original_model, axis=1)
 
     x = model_shunt(shunt_input)
-    x = Reshape((int_shape(x)[1]*int_shape(x)[2]*int_shape(x)[3]))
+    x = Reshape((-1))
     x = keras.backend.l2_normalize(x, axis=1)
     x = Subtract()([x, output_original_model])
     x = Multiply()([x, x])
