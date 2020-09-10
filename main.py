@@ -306,8 +306,8 @@ if __name__ == '__main__':
                 model_training_shunt.load_weights(shunt_params['weightspath'])
                 print('Shunt weights loaded successfully!')
 
-            model_training_shunt.compile(loss=keras.losses.mean_absolut_error, optimizer=keras.optimizers.Adam(learning_rate=learning_rate_first_cycle_shunt, decay=0.0), metrics=[keras.metrics.MeanAbsoluteError()])
-
+            model_training_shunt.compile(loss=keras.losses.mean_absolute_error, optimizer=keras.optimizers.Adam(learning_rate=learning_rate_first_cycle_shunt, decay=0.0), metrics=[keras.metrics.MeanAbsoluteError()])
+            print(model_training_shunt.summary())
             train_dummy_data = np.zeros((len_train_data, batch_size_shunt,))
             datagen_val_dummy = Imagenet_train_shunt_generator(dataset_val_image_path, dataset_ground_truth_file_path, shuffle=False)
 

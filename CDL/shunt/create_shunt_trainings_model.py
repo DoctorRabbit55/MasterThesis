@@ -1,7 +1,7 @@
 import keras
 from keras.utils.generic_utils import get_custom_objects
 from keras.layers import deserialize as layer_from_config
-from keras.layers import Input, Add, Multiply, Subtract, Dot
+from keras.layers import Input, Add, Multiply, Subtract, Reshape
 
 import numpy as np
 
@@ -47,11 +47,15 @@ def create_shunt_trainings_model(model, model_shunt, shunt_locations):
             shunt_input = x
 
     output_original_model = x
+    output_original_model = Reshape((output_original_model.output_shape[1]*output_original_model.output_shape[2]*output_original_model.output_shape[3]))(output_original_model)
+    output_original_model = keras.backend.l2_normalize(output_original_model, axis=1)
 
     x = model_shunt(shunt_input)
+    x = Reshape((x.output_shape[1]*x.output_shape[2]*x.output_shape[3]))
+    x = keras.backend.l2_normalize(x, axis=1)
     x = Subtract()([x, output_original_model])
     x = Multiply()([x, x])
-    x = keras.backend.sum(x, axis=(1,2,3))
+    x = keras.backend.sum(x, axis=1)
     x = keras.backend.sqrt(x)
 
     model_training = keras.models.Model(inputs=input_net, outputs=[x], name='shunt_training')
