@@ -49,11 +49,11 @@ def create_shunt_trainings_model(model, model_shunt, shunt_locations):
 
     output_original_model = x
     output_original_model = Flatten()(output_original_model)
-    output_original_model = Lambda(lambda x: K.l2_normalize(output_original_model,axis=1))
+    #output_original_model = Lambda(lambda x: K.l2_normalize(output_original_model,axis=1))
 
     x = model_shunt(shunt_input)
     x = Flatten()(x)
-    x = Lambda(lambda x: K.l2_normalize(x,axis=1))
+    #x = Lambda(lambda x: K.l2_normalize(x,axis=1))
     x = Subtract()([x, output_original_model])
     x = Multiply()([x, x])
     x = keras.backend.sum(x, axis=1)
