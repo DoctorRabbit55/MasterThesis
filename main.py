@@ -298,7 +298,7 @@ if __name__ == '__main__':
 
     model_shunt.compile(loss=keras.losses.mean_squared_error, optimizer=keras.optimizers.Adam(learning_rate=learning_rate_first_cycle_shunt, decay=0.0), metrics=[keras.metrics.MeanSquaredError()])
 
-    callback_checkpoint = keras.callbacks.ModelCheckpoint(str(Path(folder_name_logging, "shunt_model_weights.h5")), save_best_only=True, monitor='val_mean_square_error', mode='min', save_weights_only=True)
+    callback_checkpoint = keras.callbacks.ModelCheckpoint(str(Path(folder_name_logging, "shunt_model_weights.h5")), save_best_only=True, monitor='val_mean_squared_error', mode='min', save_weights_only=True)
     callback_learning_rate = LearningRateSchedulerCallback(epochs_first_cycle=epochs_first_cycle_shunt, learning_rate_second_cycle=learning_rate_second_cycle_shunt)
 
     # Feature maps
@@ -311,8 +311,9 @@ if __name__ == '__main__':
 
             if modes['train_shunt_model']:
                 print('Train shunt model:')
-                train_dummy_data = np.zeros((len_train_data, batch_size_shunt,))
-                datagen_val_dummy = Imagenet_train_shunt_generator(dataset_val_image_path, dataset_ground_truth_file_path, shuffle=False)
+                shunt_output_size = model_shunt.output_shape[1]*model_shunt.output_shape[2]*model_shunt.output_shape[3]
+                train_dummy_data = np.zeros((len_train_data, batch_size_shunt, shunt_output_size))
+                datagen_val_dummy = Imagenet_train_shunt_generator(dataset_val_image_path, dataset_ground_truth_file_path, shuffle=False, shunt_output_size=shunt_output_size)
 
                 history_shunt = model_training_shunt.fit(zip(datagen_train.flow_from_directory(dataset_train_image_path, class_mode=None, shuffle=True, target_size=(224,224), batch_size=batch_size_shunt), train_dummy_data), epochs=epochs_shunt, steps_per_epoch=len_train_data//batch_size_shunt, validation_data=datagen_val_dummy, verbose=1, callbacks=[callback_checkpoint, callback_learning_rate],
                                                          use_multiprocessing=True, workers=32, max_queue_size=64)
