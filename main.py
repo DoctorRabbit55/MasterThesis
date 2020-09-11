@@ -274,6 +274,13 @@ if __name__ == '__main__':
     logging.info('')
     logging.info('Shunt model saved to {}'.format(folder_name_logging))
     
+    batch_size_shunt = training_shunt_model.getint('batchsize')
+    epochs_first_cycle_shunt = training_shunt_model.getint('epochs_first_cycle')
+    epochs_second_cycle_shunt = training_shunt_model.getint('epochs_second_cycle')
+    epochs_shunt = epochs_first_cycle_shunt + epochs_second_cycle_shunt
+    learning_rate_first_cycle_shunt = training_shunt_model.getfloat('learning_rate_first_cycle')
+    learning_rate_second_cycle_shunt = training_shunt_model.getfloat('learning_rate_second_cycle')
+
     # if feature maps do not fit in memory, feature map extracting model has to be used
     #if dataset_name == 'imagenet':
     model_training_shunt = create_shunt_trainings_model(model_original, model_shunt, (loc1, loc2))
@@ -288,13 +295,6 @@ if __name__ == '__main__':
             print('Shunt weights loaded successfully!')
 
     flops_shunt = calculateFLOPs_model(model_shunt)
-
-    batch_size_shunt = training_shunt_model.getint('batchsize')
-    epochs_first_cycle_shunt = training_shunt_model.getint('epochs_first_cycle')
-    epochs_second_cycle_shunt = training_shunt_model.getint('epochs_second_cycle')
-    epochs_shunt = epochs_first_cycle_shunt + epochs_second_cycle_shunt
-    learning_rate_first_cycle_shunt = training_shunt_model.getfloat('learning_rate_first_cycle')
-    learning_rate_second_cycle_shunt = training_shunt_model.getfloat('learning_rate_second_cycle')
 
     model_shunt.compile(loss=keras.losses.mean_squared_error, optimizer=keras.optimizers.Adam(learning_rate=learning_rate_first_cycle_shunt, decay=0.0), metrics=[keras.metrics.MeanSquaredError()])
 
@@ -322,7 +322,7 @@ if __name__ == '__main__':
             if modes['test_shunt_model']:
                 print('Test shunt model')
                 datagen_val_dummy = Imagenet_train_shunt_generator(dataset_val_image_path, dataset_ground_truth_file_path, shuffle=False)
-                val_loss_shunt, val_acc_shunt, = model_train_shunt.evaluate(datagen_val_dummy, verbose=1)
+                val_loss_shunt, val_acc_shunt, = model_training_shunt.evaluate(datagen_val_dummy, verbose=1)
                 print('Loss: {:.5f}'.format(val_loss_shunt))
                 print('Accuracy: {:.5f}'.format(val_acc_shunt))
 
