@@ -341,7 +341,7 @@ if __name__ == '__main__':
                 train_dummy_data = [None] * len_train_data
                 val_dummy_data = [None] * len_val_data
 
-                history_shunt = model_training_shunt.fit(x_train, train_dummy_data, batch_size=batch_size_shunt, epochs=epochs_shunt, steps_per_epoch=len_train_data//batch_size_shunt, validation_data=(x_test, val_dummy_data), validation_steps=len_val_data//batch_size_shunt, verbose=1, callbacks=[callback_checkpoint, callback_learning_rate],
+                history_shunt = model_training_shunt.fit(x_train, train_dummy_data, batch_size=batch_size_shunt, epochs=epochs_shunt, validation_data=(x_test, val_dummy_data), verbose=1, callbacks=[callback_checkpoint, callback_learning_rate],
                                                          use_multiprocessing=False, workers=1, max_queue_size=64)
 
                 model_training_shunt.load_weights(str(Path(folder_name_logging, "shunt_model_weights.h5")))
