@@ -303,7 +303,7 @@ if __name__ == '__main__':
             model_training_shunt.load_weights(shunt_params['weightspath'])
             print('Shunt weights loaded successfully!')
         elif dataset_name == 'CIFAR10':
-            model_shunt.load_weights(shunt_params['weightspath'])
+            model_training_shunt.load_weights(shunt_params['weightspath'])
             print('Shunt weights loaded successfully!')
 
     flops_shunt = calculateFLOPs_model(model_shunt)
