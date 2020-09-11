@@ -34,8 +34,8 @@ from matplotlib import pyplot as plt
 from sklearn.metrics import classification_report
 
 def mean_squared_diff(y_true, y_pred):
-    y_pred = ops.convert_to_tensor_v2(y_pred)
-    return keras.backend.mean(math_ops.square(y_pred), axis=-1)
+    #y_pred = ops.convert_to_tensor_v2(y_pred)
+    return keras.backend.mean(keras.backend.square(y_pred), axis=-1)
 
 
 if __name__ == '__main__':
