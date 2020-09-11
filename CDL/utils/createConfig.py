@@ -39,7 +39,8 @@ if __name__ == '__main__':
         # SHUNT
         config['SHUNT'] = {'location': '62,114',
                         'arch': 1,
-                        'from file': False,
+                        'use_squeeze_and_excite': False,
+                        'from_file': False,
                         'filepath': "",
                         'pretrained': False,
                         'weightspath': "",

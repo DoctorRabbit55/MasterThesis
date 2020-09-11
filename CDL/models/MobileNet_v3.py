@@ -165,10 +165,10 @@ from keras_applications.imagenet_utils import _obtain_input_shape
 from keras_applications.imagenet_utils import decode_predictions
 
 
-backend = None
-layers = None
-models = None
-keras_utils = None
+backend = keras.backend
+layers = keras.layers
+models = keras.models
+keras_utils = keras.utils
 
 BASE_WEIGHT_PATH = ('https://github.com/DrSlink/mobilenet_v3_keras/'
                     'releases/download/v1.0/')
@@ -244,12 +244,12 @@ def _se_block(inputs, filters, se_ratio, prefix):
     x = layers.Conv2D(_depth(filters * se_ratio),
                       kernel_size=1,
                       padding='same',
-                      name=prefix + 'squeeze_excite/Conv')(x)
+                      name=prefix + 'squeeze_excite/Conv2D')(x)
     x = layers.ReLU(name=prefix + 'squeeze_excite/Relu')(x)
     x = layers.Conv2D(filters,
                       kernel_size=1,
                       padding='same',
-                      name=prefix + 'squeeze_excite/Conv_1')(x)
+                      name=prefix + 'squeeze_excite/Conv2D_1')(x)
     x = layers.Activation(hard_sigmoid)(x)
     if backend.backend() == 'theano':
         # For the Theano backend, we have to explicitly make
@@ -284,7 +284,7 @@ def _inverted_res_block(x, expansion, filters, kernel_size, stride,
 
     if stride == 2:
         x = layers.ZeroPadding2D(padding=correct_pad(backend, x, kernel_size),
-                                 name=prefix + 'depthwise/pad')(x)
+                                 name=prefix + 'depthwise_pad')(x)
     x = layers.DepthwiseConv2D(kernel_size,
                                strides=stride,
                                padding='same' if stride == 1 else 'valid',

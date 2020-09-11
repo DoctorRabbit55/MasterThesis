@@ -223,7 +223,6 @@ if __name__ == '__main__':
         #save_history_plot(history_original, "original", folder_name_logging)
 
     # test original model
-    '''
     print('Test original model')
     if dataset_name == 'imagenet':
         val_loss_original, val_entropy_original, val_acc_original = model_original.evaluate(datagen_val, verbose=1, use_multiprocessing=True, workers=32, max_queue_size=64)
@@ -232,7 +231,7 @@ if __name__ == '__main__':
     print('Loss: {:.5f}'.format(val_loss_original))
     print('Entropy: {:.5f}'.format(val_entropy_original))
     print('Accuracy: {:.4f}'.format(val_acc_original))
-    '''
+    
     if modes['calc_knowledge_quotients']:
         if dataset_name == 'imagenet':
             know_quot = get_knowledge_quotients(model=model_original, datagen=datagen_val, val_acc_model=val_acc_original)
@@ -251,6 +250,12 @@ if __name__ == '__main__':
         exit()
 
 
+    logging.info('')
+    logging.info('#######################################################################################################')
+    logging.info('############################################ SHUNT MODEL ##############################################')
+    logging.info('#######################################################################################################')
+    logging.info('')
+
     loc1 = shunt_params['locations'][0]
     loc2 = shunt_params['locations'][1]
     
@@ -258,26 +263,28 @@ if __name__ == '__main__':
         model_shunt = keras.models.load_model(shunt_params['filepath'])
         print('Shunt model loaded successfully!')
     else:
-
         input_shape_shunt = model_original.get_layer(index=loc1).input_shape[1:]
         output_shape_shunt = model_original.get_layer(index=loc2).output_shape[1:]
-
         model_shunt = Architectures.createShunt(input_shape_shunt, output_shape_shunt, arch=shunt_params['arch'], use_se=shunt_params['use_se'])
     
-    logging.info('')
-    logging.info('#######################################################################################################')
-    logging.info('############################################ SHUNT MODEL ##############################################')
-    logging.info('#######################################################################################################')
-    logging.info('')
     model_shunt.summary(print_fn=logger.info, line_length=150)
 
     keras.models.save_model(model_shunt, Path(folder_name_logging, "shunt_model.h5"))
     logging.info('')
     logging.info('Shunt model saved to {}'.format(folder_name_logging))
     
-    #if shunt_params['pretrained']:
-    #    model_shunt.load_weights(shunt_params['weightspath'])
-    #    print('Shunt weights loaded successfully!')
+    # if feature maps do not fit in memory, feature map extracting model has to be used
+    if dataset_name == 'imagenet':
+        model_training_shunt = create_shunt_trainings_model(model_original, model_shunt, (loc1, loc2))
+        model_training_shunt.compile(loss=keras.losses.mean_absolute_error, optimizer=keras.optimizers.Adam(learning_rate=learning_rate_first_cycle_shunt, decay=0.0), metrics=[keras.metrics.MeanAbsoluteError()])
+
+    if shunt_params['pretrained']:
+        if dataset_name == 'imagenet':
+            model_training_shunt.load_weights(shunt_params['weightspath'])
+            print('Shunt weights loaded successfully!')
+        elif dataset_name == 'CIFAR10':
+            model_shunt.load_weights(shunt_params['weightspath'])
+            print('Shunt weights loaded successfully!')
 
     flops_shunt = calculateFLOPs_model(model_shunt)
 
@@ -301,18 +308,22 @@ if __name__ == '__main__':
         
         if dataset_name == 'imagenet':
 
-            model_training_shunt = create_shunt_trainings_model(model_original, model_shunt, (loc1, loc2))
-            if shunt_params['pretrained']:
-                model_training_shunt.load_weights(shunt_params['weightspath'])
-                print('Shunt weights loaded successfully!')
+            if modes['train_shunt_model']:
+                print('Train shunt model:')
+                train_dummy_data = np.zeros((len_train_data, batch_size_shunt,))
+                datagen_val_dummy = Imagenet_train_shunt_generator(dataset_val_image_path, dataset_ground_truth_file_path, shuffle=False)
 
-            model_training_shunt.compile(loss=keras.losses.mean_absolute_error, optimizer=keras.optimizers.Adam(learning_rate=learning_rate_first_cycle_shunt, decay=0.0), metrics=[keras.metrics.MeanAbsoluteError()])
-            print(model_training_shunt.summary())
-            train_dummy_data = np.zeros((len_train_data, batch_size_shunt,))
-            datagen_val_dummy = Imagenet_train_shunt_generator(dataset_val_image_path, dataset_ground_truth_file_path, shuffle=False)
+                history_shunt = model_training_shunt.fit(zip(datagen_train.flow_from_directory(dataset_train_image_path, class_mode=None, shuffle=True, target_size=(224,224), batch_size=batch_size_shunt), train_dummy_data), epochs=epochs_shunt, steps_per_epoch=len_train_data//batch_size_shunt, validation_data=datagen_val_dummy, verbose=1, callbacks=[callback_checkpoint, callback_learning_rate],
+                                                         use_multiprocessing=True, workers=32, max_queue_size=64)
 
-            history_shunt = model_training_shunt.fit(zip(datagen_train.flow_from_directory(dataset_train_image_path, class_mode=None, shuffle=True, target_size=(224,224), batch_size=batch_size_shunt), train_dummy_data), epochs=epochs_shunt, steps_per_epoch=len_train_data//batch_size_shunt, validation_data=datagen_val_dummy, verbose=1, callbacks=[callback_checkpoint, callback_learning_rate],
-                                                     use_multiprocessing=True, workers=32, max_queue_size=64)
+                model_training_shunt.load_weights(str(Path(folder_name_logging, "shunt_model_weights.h5")))
+
+            if modes['test_shunt_model']:
+                print('Test shunt model')
+                datagen_val_dummy = Imagenet_train_shunt_generator(dataset_val_image_path, dataset_ground_truth_file_path, shuffle=False)
+                val_loss_shunt, val_acc_shunt, = model_shunt.evaluate(datagen_val_dummy, verbose=1)
+                print('Loss: {:.5f}'.format(val_loss_shunt))
+                print('Accuracy: {:.5f}'.format(val_acc_shunt))
 
         elif dataset_name == 'CIFAR10':
             if os.path.isfile(Path(shunt_params['featuremapspath'], "fm1_train_{}_{}.npy".format(loc1, loc2))):
@@ -337,19 +348,17 @@ if __name__ == '__main__':
             data_train = (fm1_train, fm2_train)
             data_val = (fm1_test, fm2_test)
 
-        if modes['train_shunt_model']:
-            print('Train shunt model:')
-            history_shunt = model_shunt.fit(data_train[0], y=data_train[1], batch_size=batch_size_shunt, epochs=epochs_shunt, validation_data=data_val, verbose=1, callbacks=[callback_checkpoint, callback_learning_rate])
-            #save_history_plot(history_shunt, "shunt", folder_name_logging)
+            if modes['train_shunt_model']:
+                print('Train shunt model:')
+                history_shunt = model_shunt.fit(data_train[0], y=data_train[1], batch_size=batch_size_shunt, epochs=epochs_shunt, validation_data=data_val, verbose=1, callbacks=[callback_checkpoint, callback_learning_rate])
+                #save_history_plot(history_shunt, "shunt", folder_name_logging)
+                model_shunt.load_weights(str(Path(folder_name_logging, "shunt_model_weights.h5")))
 
-        #model_shunt.load_weights(str(Path(folder_name_logging, "shunt_model_weights.h5")))
-
-        if modes['test_shunt_model']:
-            pass
-            #print('Test shunt model')
-            #val_loss_shunt, val_acc_shunt, = model_shunt.evaluate(fm1_test, fm2_test, verbose=1)
-            #print('Loss: {:.5f}'.format(val_loss_shunt))
-            #print('Accuracy: {:.5f}'.format(val_acc_shunt))
+            if modes['test_shunt_model']:
+                print('Test shunt model')
+                val_loss_shunt, val_acc_shunt, = model_shunt.evaluate(fm1_test, fm2_test, verbose=1)
+                print('Loss: {:.5f}'.format(val_loss_shunt))
+                print('Accuracy: {:.5f}'.format(val_acc_shunt))
 
         fm1_test = fm1_train = fm2_test = fm2_train = None
 
