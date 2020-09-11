@@ -3,13 +3,13 @@ from __future__ import division
 from __future__ import print_function
 
 import tensorflow as tf
-import keras
+import tensorflow.keras as keras
 from keras.utils.generic_utils import get_custom_objects
-from keras.layers import Input, UpSampling2D, GlobalAveragePooling2D, Dense, Conv2D, BatchNormalization, ReLU, DepthwiseConv2D, InputLayer, Add, Multiply, Reshape, Activation, Dropout, Flatten, Softmax
-from keras import Model
-from keras.layers import deserialize as layer_from_config
-from keras.optimizers import SGD
-from keras.preprocessing.image import ImageDataGenerator
+from tensorflow.keras.layers import Input, UpSampling2D, GlobalAveragePooling2D, Dense, Conv2D, BatchNormalization, ReLU, DepthwiseConv2D, InputLayer, Add, Multiply, Reshape, Activation, Dropout, Flatten, Softmax
+from tensorflow.keras import Model
+from tensorflow.keras.layers import deserialize as layer_from_config
+from tensorflow.keras.optimizers import SGD
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from CDL.utils.keras_utils import add_regularization
 
 import numpy as np

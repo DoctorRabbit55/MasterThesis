@@ -1,16 +1,16 @@
 import tensorflow as tf
-import keras
-import keras.backend as K
+import tensorflow.keras as keras
+import tensorflow.keras.backend as K
 
-from keras.layers import Add, Multiply, Input, Activation
-from keras.layers import deserialize as layer_from_config
-from keras.utils.generic_utils import get_custom_objects
+from tensorflow.keras.layers import Add, Multiply, Input, Activation
+from tensorflow.keras.layers import deserialize as layer_from_config
+from tensorflow.keras.utils.generic_utils import get_custom_objects
 
 import unittest
 import numpy as np
 from pathlib import Path
 
-from keras.applications import MobileNetV2
+from tensorflow.keras.applications import MobileNetV2
 #from keras_applications.mobilenet_v3 import MobileNetV3Small
 
 def categorical_crossentropy_masked(y_true, y_pred):
@@ -18,11 +18,14 @@ def categorical_crossentropy_masked(y_true, y_pred):
 
 class MyMeanIOU(tf.keras.metrics.MeanIoU):
 
+    def __init__(self, num_classes):
+        super().__init__(num_classes)
+
     def update_state(self, y_true, y_pred, sample_weight=None):
-        pred = tf.argmax(y_pred[:,:,:,:21], axis=-1)
-        gt = tf.argmax(y_true[:,:,:,:21], axis=-1)
+        pred = tf.argmax(y_pred[:,:,:,:], axis=-1)
+        gt = tf.argmax(y_true[:,:,:,:], axis=-1)
         weights = tf.cast(tf.less_equal(y_true, 20), tf.int32)
-        return super().update_state(gt, pred, sample_weight=weights)
+        return super().update_state(gt, pred)
 
 class HardSwish(Activation):
 
