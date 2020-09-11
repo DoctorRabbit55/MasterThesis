@@ -37,7 +37,7 @@ from sklearn.metrics import classification_report
 
 def mean_squared_diff(y_true, y_pred):
     #y_pred = ops.convert_to_tensor_v2_with_dispatch(y_pred)
-    return tf.mean(tf.square(y_pred), axis=-1)
+    return K.mean(tf.square(y_pred), axis=-1)
 
 
 if __name__ == '__main__':
