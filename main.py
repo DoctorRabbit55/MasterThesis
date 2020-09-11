@@ -25,10 +25,18 @@ from keras.datasets import cifar10
 from keras.utils import to_categorical
 from keras.preprocessing.image import ImageDataGenerator
 import keras
+from tensorflow.python.framework import ops
+from tensorflow.python.ops import math_ops
+
 
 from matplotlib import pyplot as plt
 
 from sklearn.metrics import classification_report
+
+def mean_squared_diff(y_true, y_pred):
+    y_pred = ops.convert_to_tensor_v2(y_pred)
+    return keras.backend.mean(math_ops.square(y_pred), axis=-1)
+
 
 if __name__ == '__main__':
 
@@ -284,7 +292,7 @@ if __name__ == '__main__':
     # if feature maps do not fit in memory, feature map extracting model has to be used
     #if dataset_name == 'imagenet':
     model_training_shunt = create_shunt_trainings_model(model_original, model_shunt, (loc1, loc2))
-    model_training_shunt.compile(loss=keras.losses.mean_squared_error, optimizer=keras.optimizers.Adam(learning_rate=learning_rate_first_cycle_shunt, decay=0.0), metrics=[keras.metrics.MeanSquaredError()])
+    model_training_shunt.compile(loss=mean_squared_diff, optimizer=keras.optimizers.Adam(learning_rate=learning_rate_first_cycle_shunt, decay=0.0), metrics=None)
 
     if shunt_params['pretrained']:
         if dataset_name == 'imagenet':
@@ -311,11 +319,10 @@ if __name__ == '__main__':
 
             if modes['train_shunt_model']:
                 print('Train shunt model:')
-                shunt_output_size = model_shunt.output_shape[1]*model_shunt.output_shape[2]*model_shunt.output_shape[3]
-                train_dummy_data = np.zeros((len_train_data, batch_size_shunt, shunt_output_size))
-                datagen_val_dummy = Imagenet_train_shunt_generator(dataset_val_image_path, dataset_ground_truth_file_path, shuffle=False, shunt_output_size=shunt_output_size)
+                #train_dummy_data = np.zeros((len_train_data, batch_size_shunt,))
+                datagen_val_dummy = Imagenet_train_shunt_generator(dataset_val_image_path, dataset_ground_truth_file_path, shuffle=False)
 
-                history_shunt = model_training_shunt.fit(zip(datagen_train.flow_from_directory(dataset_train_image_path, class_mode=None, shuffle=True, target_size=(224,224), batch_size=batch_size_shunt), train_dummy_data), epochs=epochs_shunt, steps_per_epoch=len_train_data//batch_size_shunt, validation_data=datagen_val_dummy, verbose=1, callbacks=[callback_checkpoint, callback_learning_rate],
+                history_shunt = model_training_shunt.fit(zip(datagen_train.flow_from_directory(dataset_train_image_path, class_mode=None, shuffle=True, target_size=(224,224), batch_size=batch_size_shunt), None), epochs=epochs_shunt, steps_per_epoch=len_train_data//batch_size_shunt, validation_data=datagen_val_dummy, verbose=1, callbacks=[callback_checkpoint, callback_learning_rate],
                                                          use_multiprocessing=True, workers=32, max_queue_size=64)
 
                 model_training_shunt.load_weights(str(Path(folder_name_logging, "shunt_model_weights.h5")))
