@@ -318,7 +318,7 @@ if __name__ == '__main__':
                 name = model_shunt.layers[i].name
                 weights = model_training_shunt.get_layer(name='shunt').get_layer(name=name).get_weights()
                 if len(weights) > 0:
-                    model_shunt.layers[i].set_weigths(weights)
+                    model_shunt.layers[i].set_weights(weights)
 
         elif dataset_name == 'CIFAR10':
             if os.path.isfile(Path(shunt_params['featuremapspath'], "fm1_train_{}_{}.npy".format(loc1, loc2))):
