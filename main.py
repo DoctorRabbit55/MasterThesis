@@ -284,7 +284,7 @@ if __name__ == '__main__':
     # if feature maps do not fit in memory, feature map extracting model has to be used
     #if dataset_name == 'imagenet':
     model_training_shunt = create_shunt_trainings_model(model_original, model_shunt, (loc1, loc2))
-    model_training_shunt.compile(loss=keras.losses.mean_square_error, optimizer=keras.optimizers.Adam(learning_rate=learning_rate_first_cycle_shunt, decay=0.0), metrics=[keras.metrics.MeanSquareError()])
+    model_training_shunt.compile(loss=keras.losses.mean_squared_error, optimizer=keras.optimizers.Adam(learning_rate=learning_rate_first_cycle_shunt, decay=0.0), metrics=[keras.metrics.MeanSquaredError()])
 
     if shunt_params['pretrained']:
         if dataset_name == 'imagenet':
