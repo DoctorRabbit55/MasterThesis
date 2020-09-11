@@ -34,7 +34,7 @@ from matplotlib import pyplot as plt
 from sklearn.metrics import classification_report
 
 def mean_squared_diff(y_true, y_pred):
-    y_pred = ops.convert_to_tensor_v2(y_pred)
+    #y_pred = ops.convert_to_tensor_v2(y_pred)
     return keras.backend.mean(math_ops.square(y_pred), axis=-1)
 
 
@@ -338,12 +338,11 @@ if __name__ == '__main__':
 
             if modes['train_shunt_model']:
                 print('Train shunt model:')
-                shunt_output_size = model_shunt.output_shape[1]*model_shunt.output_shape[2]*model_shunt.output_shape[3]
-                train_dummy_data = np.zeros((len_train_data,shunt_output_size))
-                val_dummy_data = np.zeros((len_val_data,shunt_output_size))
+                train_dummy_data = [None] * len_train_data
+                val_dummy_data = [None] * len_val_data
 
-                history_shunt = model_training_shunt.fit(x_train, train_dummy_data, batch_size=batch_size_shunt, epochs=epochs_shunt, steps_per_epoch=len_train_data//batch_size_shunt, validation_data=(x_test, val_dummy_data), verbose=1, callbacks=[callback_checkpoint, callback_learning_rate],
-                                                         use_multiprocessing=True, workers=32, max_queue_size=64)
+                history_shunt = model_training_shunt.fit(x_train, train_dummy_data, batch_size=batch_size_shunt, epochs=epochs_shunt, steps_per_epoch=len_train_data//batch_size_shunt, validation_data=(x_test, val_dummy_data), validation_steps=len_val_data//batch_size_shunt, verbose=1, callbacks=[callback_checkpoint, callback_learning_rate],
+                                                         use_multiprocessing=False, workers=1, max_queue_size=64)
 
                 model_training_shunt.load_weights(str(Path(folder_name_logging, "shunt_model_weights.h5")))
 
