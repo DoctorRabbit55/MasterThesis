@@ -25,6 +25,7 @@ from tensorflow.keras.datasets import cifar10
 from tensorflow.keras.utils import to_categorical
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 import tensorflow.keras as keras
+import tensorflow.keras.backend as K
 from tensorflow.python.framework import ops
 from tensorflow.python.ops import math_ops
 from tensorflow.python.util import dispatch
@@ -36,7 +37,7 @@ from sklearn.metrics import classification_report
 
 def mean_squared_diff(y_true, y_pred):
     #y_pred = ops.convert_to_tensor_v2_with_dispatch(y_pred)
-    return keras.backend.mean(keras.backend.square(y_pred), axis=-1)
+    return tf.mean(tf.square(y_pred), axis=-1)
 
 
 if __name__ == '__main__':
