@@ -49,20 +49,20 @@ def create_shunt_trainings_model(model, model_shunt, shunt_locations):
             shunt_input = x
 
     output_original_model = x
-    #output_original_model = Flatten()(output_original_model)
+    output_original_model = Flatten()(output_original_model)
     #output_original_model = K.l2_normalize(output_original_model,axis=1)
 
     x = model_shunt(shunt_input)
 
-    #x = Flatten()(x)
+    x = Flatten()(x)
     #x = K.l2_normalize(x,axis=1)
-    #x = Subtract()([x, output_original_model])
+    x = Subtract()([x, output_original_model])
     #x = Multiply()([x, x])
     #x = keras.backend.sum(x, axis=1)
     #x = keras.backend.sqrt(x)
     #x = Lambda(lambda x: x * 1/(model_shunt.output_shape[1]*model_shunt.output_shape[2]))(x)
 
-    model_training = keras.models.Model(inputs=input_net, outputs=[x, output_original_model], name='shunt_training')
+    model_training = keras.models.Model(inputs=input_net, outputs=[x], name='shunt_training')
 
     for j in range(1,len(model_training.layers)):
 
@@ -71,7 +71,7 @@ def create_shunt_trainings_model(model, model_shunt, shunt_locations):
             weights = model.get_layer(name=layer.name).get_weights()
         except:
             continue
-        #layer.trainable = False
+        layer.trainable = False
         if len(weights) > 0:
             model_training.layers[j].set_weights(weights)
 

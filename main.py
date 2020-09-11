@@ -37,7 +37,7 @@ from sklearn.metrics import classification_report
 
 def mean_squared_diff(y_true, y_pred):
     #y_pred = ops.convert_to_tensor_v2_with_dispatch(y_pred)
-    return K.mean(tf.squared_difference(y_true[0]-y_true[1]), axis=-1)
+    return K.mean(K.sum(K.square(y_pred), axis=-1), axis=-1)
 
 
 if __name__ == '__main__':
@@ -294,7 +294,8 @@ if __name__ == '__main__':
     # if feature maps do not fit in memory, feature map extracting model has to be used
     #if dataset_name == 'imagenet':
     model_training_shunt = create_shunt_trainings_model(model_original, model_shunt, (loc1, loc2))
-    model_training_shunt.compile(loss=mean_squared_diff, optimizer=keras.optimizers.Adam(learning_rate=learning_rate_first_cycle_shunt, decay=0.0), metrics=None)
+    model_training_shunt.compile(loss=mean_squared_diff, optimizer=keras.optimizers.Adam(learning_rate=learning_rate_first_cycle_shunt, decay=0.0))
+    model_training_shunt.add_loss(mean_squared_diff(None, model_training_shunt.outputs[0]))
     print(model_training_shunt.summary())
 
     if shunt_params['pretrained']:
@@ -341,10 +342,10 @@ if __name__ == '__main__':
 
             if modes['train_shunt_model']:
                 print('Train shunt model:')
-                train_dummy_data = None
+                train_dummy_data = [None] * len_train_data
                 val_dummy_data = None
 
-                history_shunt = model_training_shunt.fit(x_train, train_dummy_data, batch_size=batch_size_shunt, epochs=epochs_shunt, validation_data=(x_test, val_dummy_data), verbose=1, callbacks=[callback_checkpoint, callback_learning_rate],
+                history_shunt = model_training_shunt.fit(x_train, y=None, batch_size=batch_size_shunt, epochs=epochs_shunt, validation_data=(x_test, val_dummy_data), verbose=1, callbacks=[callback_checkpoint, callback_learning_rate],
                                                          use_multiprocessing=False, workers=1, max_queue_size=64)
 
                 model_training_shunt.load_weights(str(Path(folder_name_logging, "shunt_model_weights.h5")))
