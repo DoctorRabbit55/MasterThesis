@@ -4,7 +4,7 @@ import tensorflow.keras.backend as K
 
 from tensorflow.keras.layers import Add, Multiply, Input, Activation
 from tensorflow.keras.layers import deserialize as layer_from_config
-from tensorflow.keras.utils.generic_utils import get_custom_objects
+from keras.utils.generic_utils import get_custom_objects
 
 import unittest
 import numpy as np
