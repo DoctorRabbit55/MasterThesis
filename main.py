@@ -35,7 +35,7 @@ from sklearn.metrics import classification_report
 
 def mean_squared_diff(y_true, y_pred):
     #y_pred = ops.convert_to_tensor_v2(y_pred)
-    return keras.backend.sum(math_ops.square(y_pred), axis=-1)
+    return keras.backend.mean(math_ops.square(y_pred), axis=-1)
 
 
 if __name__ == '__main__':
@@ -338,8 +338,8 @@ if __name__ == '__main__':
 
             if modes['train_shunt_model']:
                 print('Train shunt model:')
-                train_dummy_data = [None] * len_train_data
-                val_dummy_data = [None] * len_val_data
+                train_dummy_data = None
+                val_dummy_data = None
 
                 history_shunt = model_training_shunt.fit(x_train, train_dummy_data, batch_size=batch_size_shunt, epochs=epochs_shunt, validation_data=(x_test, val_dummy_data), verbose=1, callbacks=[callback_checkpoint, callback_learning_rate],
                                                          use_multiprocessing=False, workers=1, max_queue_size=64)
