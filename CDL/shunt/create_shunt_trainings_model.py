@@ -52,7 +52,7 @@ def create_shunt_trainings_model(model, model_shunt, shunt_locations):
     #output_original_model = K.l2_normalize(output_original_model,axis=1)
 
     x = shunt_input
-    for layer in model_shunt.layers:
+    for layer in model_shunt.layers[1:]:
         x = layer(x)
     #x = Flatten()(x)
     #x = K.l2_normalize(x,axis=1)
