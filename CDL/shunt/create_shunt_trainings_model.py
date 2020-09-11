@@ -58,6 +58,7 @@ def create_shunt_trainings_model(model, model_shunt, shunt_locations):
     x = Multiply()([x, x])
     x = keras.backend.sum(x, axis=1)
     x = keras.backend.sqrt(x)
+    x =Lambda(lambda x: x * 1/(14*14))(x)
 
     model_training = keras.models.Model(inputs=input_net, outputs=[x], name='shunt_training')
 
