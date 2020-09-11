@@ -295,6 +295,7 @@ if __name__ == '__main__':
     #if dataset_name == 'imagenet':
     model_training_shunt = create_shunt_trainings_model(model_original, model_shunt, (loc1, loc2))
     model_training_shunt.compile(loss=mean_squared_diff, optimizer=keras.optimizers.Adam(learning_rate=learning_rate_first_cycle_shunt, decay=0.0), metrics=None)
+    print(model_training_shunt.summary())
 
     if shunt_params['pretrained']:
         if dataset_name == 'imagenet':
