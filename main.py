@@ -223,6 +223,7 @@ if __name__ == '__main__':
         #save_history_plot(history_original, "original", folder_name_logging)
 
     # test original model
+    '''
     print('Test original model')
     if dataset_name == 'imagenet':
         val_loss_original, val_entropy_original, val_acc_original = model_original.evaluate(datagen_val, verbose=1, use_multiprocessing=True, workers=32, max_queue_size=64)
@@ -231,7 +232,7 @@ if __name__ == '__main__':
     print('Loss: {:.5f}'.format(val_loss_original))
     print('Entropy: {:.5f}'.format(val_entropy_original))
     print('Accuracy: {:.4f}'.format(val_acc_original))
-    
+    '''
     if modes['calc_knowledge_quotients']:
         if dataset_name == 'imagenet':
             know_quot = get_knowledge_quotients(model=model_original, datagen=datagen_val, val_acc_model=val_acc_original)
@@ -274,9 +275,9 @@ if __name__ == '__main__':
     logging.info('Shunt model saved to {}'.format(folder_name_logging))
     
     # if feature maps do not fit in memory, feature map extracting model has to be used
-    if dataset_name == 'imagenet':
-        model_training_shunt = create_shunt_trainings_model(model_original, model_shunt, (loc1, loc2))
-        model_training_shunt.compile(loss=keras.losses.mean_absolute_error, optimizer=keras.optimizers.Adam(learning_rate=learning_rate_first_cycle_shunt, decay=0.0), metrics=[keras.metrics.MeanAbsoluteError()])
+    #if dataset_name == 'imagenet':
+    model_training_shunt = create_shunt_trainings_model(model_original, model_shunt, (loc1, loc2))
+    model_training_shunt.compile(loss=keras.losses.mean_absolute_error, optimizer=keras.optimizers.Adam(learning_rate=learning_rate_first_cycle_shunt, decay=0.0), metrics=[keras.metrics.MeanAbsoluteError()])
 
     if shunt_params['pretrained']:
         if dataset_name == 'imagenet':
@@ -321,11 +322,29 @@ if __name__ == '__main__':
             if modes['test_shunt_model']:
                 print('Test shunt model')
                 datagen_val_dummy = Imagenet_train_shunt_generator(dataset_val_image_path, dataset_ground_truth_file_path, shuffle=False)
-                val_loss_shunt, val_acc_shunt, = model_shunt.evaluate(datagen_val_dummy, verbose=1)
+                val_loss_shunt, val_acc_shunt, = model_train_shunt.evaluate(datagen_val_dummy, verbose=1)
                 print('Loss: {:.5f}'.format(val_loss_shunt))
                 print('Accuracy: {:.5f}'.format(val_acc_shunt))
 
         elif dataset_name == 'CIFAR10':
+
+            if modes['train_shunt_model']:
+                print('Train shunt model:')
+                train_dummy_data = np.zeros((len_train_data, batch_size_shunt,))
+                val_dummy_data = np.zeros((len_val_data, batch_size_shunt,))
+
+                history_shunt = model_training_shunt.fit(x_train, train_dummy_data, batch_size=batch_size_shunt, epochs=epochs_shunt, steps_per_epoch=len_train_data//batch_size_shunt, validation_data=(x_test, val_dummy_data), verbose=1, callbacks=[callback_checkpoint, callback_learning_rate],
+                                                         use_multiprocessing=True, workers=32, max_queue_size=64)
+
+                model_training_shunt.load_weights(str(Path(folder_name_logging, "shunt_model_weights.h5")))
+
+            if modes['test_shunt_model']:
+                print('Test shunt model')
+                val_dummy_data = np.zeros((len_val_data, batch_size_shunt,))
+                val_loss_shunt, val_acc_shunt, = model_shunt.evaluate(x_test, val_dummy_data, verbose=1)
+                print('Loss: {:.5f}'.format(val_loss_shunt))
+                print('Accuracy: {:.5f}'.format(val_acc_shunt))
+            '''
             if os.path.isfile(Path(shunt_params['featuremapspath'], "fm1_train_{}_{}.npy".format(loc1, loc2))):
                 fm1_train = np.load(Path(shunt_params['featuremapspath'], "fm1_train_{}_{}.npy".format(loc1, loc2)))
                 fm2_train = np.load(Path(shunt_params['featuremapspath'], "fm2_train_{}_{}.npy".format(loc1, loc2)))
@@ -359,6 +378,8 @@ if __name__ == '__main__':
                 val_loss_shunt, val_acc_shunt, = model_shunt.evaluate(fm1_test, fm2_test, verbose=1)
                 print('Loss: {:.5f}'.format(val_loss_shunt))
                 print('Accuracy: {:.5f}'.format(val_acc_shunt))
+
+            '''
 
         fm1_test = fm1_train = fm2_test = fm2_train = None
 
@@ -570,8 +591,7 @@ if __name__ == '__main__':
                     layer.trainable = False
 
             if training_final_model['finetune_strategy'] == 'unfreeze_all':
-                for i, layer in enumerate(model_final.layers[:-6]):
-                    layer.trainable = False 
+                callbacks.append(callback_learning_rate)
 
             if training_final_model['finetune_strategy'] == 'unfreeze_per_epoch_starting_shunt':
                 callback_unfreeze = UnfreezeLayersCallback(epochs=epochs_final, epochs_per_unfreeze=2, learning_rate=learning_rate_first_cycle_final, unfreeze_to_index=0, start_at=loc1+len(model_shunt.layers)-2, direction=1)
