@@ -27,6 +27,7 @@ from keras.preprocessing.image import ImageDataGenerator
 import keras
 from tensorflow.python.framework import ops
 from tensorflow.python.ops import math_ops
+from tensorflow.python.util import dispatch
 
 
 from matplotlib import pyplot as plt
