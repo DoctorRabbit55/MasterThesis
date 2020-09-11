@@ -330,8 +330,9 @@ if __name__ == '__main__':
 
             if modes['train_shunt_model']:
                 print('Train shunt model:')
-                train_dummy_data = np.zeros((len_train_data,))
-                val_dummy_data = np.zeros((len_val_data,))
+                shunt_output_size = model_shunt.output_shape[0]*model_shunt.output_shape[1]*model_shunt.output_shape[2]
+                train_dummy_data = np.zeros((len_train_data,shunt_output_size))
+                val_dummy_data = np.zeros((len_val_data,shunt_output_size))
 
                 history_shunt = model_training_shunt.fit(x_train, train_dummy_data, batch_size=batch_size_shunt, epochs=epochs_shunt, steps_per_epoch=len_train_data//batch_size_shunt, validation_data=(x_test, val_dummy_data), verbose=1, callbacks=[callback_checkpoint, callback_learning_rate],
                                                          use_multiprocessing=True, workers=32, max_queue_size=64)
