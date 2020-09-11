@@ -1,3 +1,4 @@
+import tensorflow as tf
 import tf.keras as keras
 from tf.keras.utils.generic_utils import get_custom_objects
 from tf.keras.layers import deserialize as layer_from_config
