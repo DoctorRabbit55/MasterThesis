@@ -4,7 +4,7 @@ from __future__ import print_function
 
 import tensorflow as tf
 import tensorflow.keras as keras
-from keras.utils.generic_utils import get_custom_objects
+from tensorflow.keras.utils.generic_utils import get_custom_objects
 from tensorflow.keras.layers import Input, UpSampling2D, GlobalAveragePooling2D, Dense, Conv2D, BatchNormalization, ReLU, DepthwiseConv2D, InputLayer, Add, Multiply, Reshape, Activation, Dropout, Flatten, Softmax
 from tensorflow.keras import Model
 from tensorflow.keras.layers import deserialize as layer_from_config
