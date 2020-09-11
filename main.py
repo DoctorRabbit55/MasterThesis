@@ -330,7 +330,7 @@ if __name__ == '__main__':
 
             if modes['train_shunt_model']:
                 print('Train shunt model:')
-                train_dummy_data = np.zeros((len_train_data, batch_size_shunt,))
+                train_dummy_data = np.zeros((len_train_data,))
                 val_dummy_data = np.zeros((len_val_data,))
 
                 history_shunt = model_training_shunt.fit(x_train, train_dummy_data, batch_size=batch_size_shunt, epochs=epochs_shunt, steps_per_epoch=len_train_data//batch_size_shunt, validation_data=(x_test, val_dummy_data), verbose=1, callbacks=[callback_checkpoint, callback_learning_rate],
@@ -341,7 +341,7 @@ if __name__ == '__main__':
             if modes['test_shunt_model']:
                 print('Test shunt model')
                 val_dummy_data = np.zeros((len_val_data,))
-                val_loss_shunt, val_acc_shunt, = model_training_shunt.evaluate(x_test, val_dummy_data, verbose=1, batch_size=64)
+                val_loss_shunt, val_acc_shunt, = model_training_shunt.evaluate(x_test, val_dummy_data, verbose=1)
                 print('Loss: {:.5f}'.format(val_loss_shunt))
                 print('Accuracy: {:.5f}'.format(val_acc_shunt))
             '''
