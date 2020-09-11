@@ -1,7 +1,7 @@
-from keras.callbacks import Callback
-from keras.layers import BatchNormalization
-from keras.optimizers import SGD
-from keras import backend
+from tensorflow.keras.callbacks import Callback
+from tensorflow.keras.layers import BatchNormalization
+from tensorflow.keras.optimizers import SGD
+from tensorflow.keras import backend
 import numpy as np
 
 class UnfreezeLayersCallback(Callback):

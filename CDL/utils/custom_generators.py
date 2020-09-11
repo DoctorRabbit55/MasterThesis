@@ -1,8 +1,8 @@
 import tensorflow as tf
-from keras.utils import Sequence, to_categorical
-from keras.preprocessing import image
-from keras.applications import imagenet_utils
-import keras
+from tensorflow.keras.utils import Sequence, to_categorical
+from tensorflow.keras.preprocessing import image
+from tensorflow.keras.applications import imagenet_utils
+import tensorflow.keras as keras
 
 from CDL.utils.keras_utils import modify_model
 
@@ -47,7 +47,8 @@ class Imagenet_train_shunt_generator(Sequence):
     def __get_data(self, batch):
 
         X = np.zeros((len(batch),224,224,3))
-        y = np.zeros((len(batch),))
+        #y = np.zeros((len(batch),shunt_output_size))
+        y = None
 
         for i, id in enumerate(batch):
             #print(str(self.x_dir / self.x_file_names[id]))
