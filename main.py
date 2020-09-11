@@ -290,7 +290,7 @@ if __name__ == '__main__':
 
     model_shunt.compile(loss=keras.losses.mean_squared_error, optimizer=keras.optimizers.Adam(learning_rate=learning_rate_first_cycle_shunt, decay=0.0), metrics=[keras.metrics.MeanSquaredError()])
 
-    callback_checkpoint = keras.callbacks.ModelCheckpoint(str(Path(folder_name_logging, "shunt_model_weights.h5")), save_best_only=True, monitor='val_mean_squared_error', mode='min', save_weights_only=True)
+    callback_checkpoint = keras.callbacks.ModelCheckpoint(str(Path(folder_name_logging, "shunt_model_weights.h5")), save_best_only=True, monitor='val_mean_absolute_error', mode='min', save_weights_only=True)
     callback_learning_rate = LearningRateSchedulerCallback(epochs_first_cycle=epochs_first_cycle_shunt, learning_rate_second_cycle=learning_rate_second_cycle_shunt)
 
     # Feature maps
@@ -348,13 +348,14 @@ if __name__ == '__main__':
             history_shunt = model_shunt.fit(data_train[0], y=data_train[1], batch_size=batch_size_shunt, epochs=epochs_shunt, validation_data=data_val, verbose=1, callbacks=[callback_checkpoint, callback_learning_rate])
             #save_history_plot(history_shunt, "shunt", folder_name_logging)
 
-        model_shunt.load_weights(str(Path(folder_name_logging, "shunt_model_weights.h5")))
+        #model_shunt.load_weights(str(Path(folder_name_logging, "shunt_model_weights.h5")))
 
         if modes['test_shunt_model']:
-            print('Test shunt model')
-            val_loss_shunt, val_acc_shunt, = model_shunt.evaluate(fm1_test, fm2_test, verbose=1)
-            print('Loss: {:.5f}'.format(val_loss_shunt))
-            print('Accuracy: {:.5f}'.format(val_acc_shunt))
+            pass
+            #print('Test shunt model')
+            #val_loss_shunt, val_acc_shunt, = model_shunt.evaluate(fm1_test, fm2_test, verbose=1)
+            #print('Loss: {:.5f}'.format(val_loss_shunt))
+            #print('Accuracy: {:.5f}'.format(val_acc_shunt))
 
         fm1_test = fm1_train = fm2_test = fm2_train = None
 
