@@ -53,7 +53,9 @@ def create_shunt_trainings_model(model, model_shunt, shunt_locations):
 
     x = shunt_input
     for layer in model_shunt.layers[1:]:
-        x = layer(x)
+        config = layer.get_config()
+        next_layer = layer_from_config({'class_name': layer.__class__.__name__, 'config': config})
+        x = next_layer(x)
     #x = Flatten()(x)
     #x = K.l2_normalize(x,axis=1)
     x = Subtract()([x, output_original_model])
