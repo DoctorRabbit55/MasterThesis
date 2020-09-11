@@ -341,7 +341,7 @@ if __name__ == '__main__':
             if modes['test_shunt_model']:
                 print('Test shunt model')
                 val_dummy_data = np.zeros((len_val_data, batch_size_shunt,))
-                val_loss_shunt, val_acc_shunt, = model_training_shunt.evaluate(x_test, val_dummy_data, verbose=1)
+                val_loss_shunt, val_acc_shunt, = model_training_shunt.evaluate(x_test, val_dummy_data, verbose=1, batch_size=64)
                 print('Loss: {:.5f}'.format(val_loss_shunt))
                 print('Accuracy: {:.5f}'.format(val_acc_shunt))
             '''
