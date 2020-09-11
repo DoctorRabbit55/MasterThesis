@@ -1,9 +1,9 @@
 import tensorflow as tf
-import tf.keras as keras
-from tf.keras.utils.generic_utils import get_custom_objects
-from tf.keras.layers import deserialize as layer_from_config
-from tf.keras.layers import Input, Add, Multiply, Subtract, Flatten, Lambda
-import tf.keras.backend as K
+import tensorflow.keras as keras
+from tensorflow.keras.utils.generic_utils import get_custom_objects
+from tensorflow.keras.layers import deserialize as layer_from_config
+from tensorflow.keras.layers import Input, Add, Multiply, Subtract, Flatten, Lambda
+import tensorflow.keras.backend as K
 
 import numpy as np
 
