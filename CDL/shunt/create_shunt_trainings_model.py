@@ -1,6 +1,6 @@
 import tensorflow as tf
 import tensorflow.keras as keras
-from tensorflow.keras.utils.generic_utils import get_custom_objects
+from keras.utils.generic_utils import get_custom_objects
 from tensorflow.keras.layers import deserialize as layer_from_config
 from tensorflow.keras.layers import Input, Add, Multiply, Subtract, Flatten, Lambda
 import tensorflow.keras.backend as K
