@@ -284,7 +284,7 @@ if __name__ == '__main__':
     # if feature maps do not fit in memory, feature map extracting model has to be used
     #if dataset_name == 'imagenet':
     model_training_shunt = create_shunt_trainings_model(model_original, model_shunt, (loc1, loc2))
-    model_training_shunt.compile(loss=keras.losses.mean_absolute_error, optimizer=keras.optimizers.Adam(learning_rate=learning_rate_first_cycle_shunt, decay=0.0), metrics=[keras.metrics.MeanAbsoluteError()])
+    model_training_shunt.compile(loss=keras.losses.mean_square_error, optimizer=keras.optimizers.Adam(learning_rate=learning_rate_first_cycle_shunt, decay=0.0), metrics=[keras.metrics.MeanSquareError()])
 
     if shunt_params['pretrained']:
         if dataset_name == 'imagenet':
@@ -298,7 +298,7 @@ if __name__ == '__main__':
 
     model_shunt.compile(loss=keras.losses.mean_squared_error, optimizer=keras.optimizers.Adam(learning_rate=learning_rate_first_cycle_shunt, decay=0.0), metrics=[keras.metrics.MeanSquaredError()])
 
-    callback_checkpoint = keras.callbacks.ModelCheckpoint(str(Path(folder_name_logging, "shunt_model_weights.h5")), save_best_only=True, monitor='val_mean_absolute_error', mode='min', save_weights_only=True)
+    callback_checkpoint = keras.callbacks.ModelCheckpoint(str(Path(folder_name_logging, "shunt_model_weights.h5")), save_best_only=True, monitor='val_mean_square_error', mode='min', save_weights_only=True)
     callback_learning_rate = LearningRateSchedulerCallback(epochs_first_cycle=epochs_first_cycle_shunt, learning_rate_second_cycle=learning_rate_second_cycle_shunt)
 
     # Feature maps
