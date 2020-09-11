@@ -71,7 +71,7 @@ def create_shunt_trainings_model(model, model_shunt, shunt_locations):
             weights = model.get_layer(name=layer.name).get_weights()
         except:
             continue
-        layer.trainable = False
+        #layer.trainable = False
         if len(weights) > 0:
             model_training.layers[j].set_weights(weights)
 
