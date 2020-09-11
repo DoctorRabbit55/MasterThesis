@@ -1,8 +1,8 @@
-import keras
-from keras.utils.generic_utils import get_custom_objects
-from keras.layers import deserialize as layer_from_config
-from keras.layers import Input, Add, Multiply, Subtract, Flatten, Lambda
-import keras.backend as K
+import tf.keras as keras
+from tf.keras.utils.generic_utils import get_custom_objects
+from tf.keras.layers import deserialize as layer_from_config
+from tf.keras.layers import Input, Add, Multiply, Subtract, Flatten, Lambda
+import tf.keras.backend as K
 
 import numpy as np
 
@@ -51,11 +51,8 @@ def create_shunt_trainings_model(model, model_shunt, shunt_locations):
     #output_original_model = Flatten()(output_original_model)
     #output_original_model = K.l2_normalize(output_original_model,axis=1)
 
-    x = shunt_input
-    for layer in model_shunt.layers[1:]:
-        config = layer.get_config()
-        next_layer = layer_from_config({'class_name': layer.__class__.__name__, 'config': config})
-        x = next_layer(x)
+    x = model_shunt(shunt_input)
+
     #x = Flatten()(x)
     #x = K.l2_normalize(x,axis=1)
     x = Subtract()([x, output_original_model])

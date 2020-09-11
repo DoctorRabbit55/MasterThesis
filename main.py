@@ -21,10 +21,10 @@ from CDL.utils.custom_callbacks import UnfreezeLayersCallback, LearningRateSched
 from CDL.utils.custom_generators import Imagenet_generator, Imagenet_train_shunt_generator
 
 import tensorflow as tf
-from keras.datasets import cifar10
-from keras.utils import to_categorical
-from keras.preprocessing.image import ImageDataGenerator
-import keras
+from tf.keras.datasets import cifar10
+from tf.keras.utils import to_categorical
+from tf.keras.preprocessing.image import ImageDataGenerator
+import tf.keras as keras
 from tensorflow.python.framework import ops
 from tensorflow.python.ops import math_ops
 from tensorflow.python.util import dispatch
