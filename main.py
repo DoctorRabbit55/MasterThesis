@@ -330,7 +330,7 @@ if __name__ == '__main__':
 
             if modes['train_shunt_model']:
                 print('Train shunt model:')
-                shunt_output_size = model_shunt.output_shape[0]*model_shunt.output_shape[1]*model_shunt.output_shape[2]
+                shunt_output_size = model_shunt.output_shape[1]*model_shunt.output_shape[2]*model_shunt.output_shape[3]
                 train_dummy_data = np.zeros((len_train_data,shunt_output_size))
                 val_dummy_data = np.zeros((len_val_data,shunt_output_size))
 
