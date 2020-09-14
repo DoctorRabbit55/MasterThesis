@@ -109,14 +109,15 @@ class Imagenet_generator(Sequence):
 
 class VOC2012_generator(Sequence):
 
-    def __init__(self, x_dir, file_names, y_dir=None, batch_size=32, num_classes=None,shuffle=True):
+    def __init__(self, x_dir, file_names, y_dir=None, batch_size=32, num_classes=None, shuffle=True, include_labels=True):
         self.batch_size = batch_size
         self.num_classes = num_classes
         self.shuffle = shuffle
         self.x_dir = x_dir
         self.y_dir = y_dir
         self.file_names = file_names
-        self.indices = range(len(file_names))
+        self.include_labels = include_labels
+        self.indices = np.arange(len(file_names))
         self.index = self.indices
         self.on_epoch_end()
 
@@ -137,7 +138,7 @@ class VOC2012_generator(Sequence):
     def __get_data(self, batch):
 
         X = np.zeros((len(batch),512,512,3))
-        y = np.zeros((len(batch),512,512,21))
+        y = np.zeros((len(batch),512,512,21)) if self.include_labels else y = None
 
         for i, id in enumerate(batch):
 
@@ -147,13 +148,8 @@ class VOC2012_generator(Sequence):
             #y[i,:,:] = np.array(cv2.imread(self.y_dir + "/" + self.file_names[id] + ".png"))
             label = np.array(cv2.imread(str(self.y_dir / (self.file_names[id] + ".png"))))
 
-            for j in range(21):
-                #if unique_value == 255:
-                #    y[i,:,:,j] = np.where(label[:,:,0] == unique_value, 1, 0)
-                #else:
-                if j != 20:
+            if self.include_labels:
+                for j in range(21):
                     y[i,:,:,j] = np.where(label[:,:,0] == j, 1, 0)
-                else:
-                    y[i,:,:,j] = np.where(label[:,:,0] == 255, 1, 0)
 
         return X, y

@@ -16,7 +16,7 @@ from CDL.utils.calculateFLOPS import calculateFLOPs_model, calculateFLOPs_blocks
 from CDL.utils.dataset_utils import *
 from CDL.utils.get_knowledge_quotients import get_knowledge_quotients
 from CDL.utils.generic_utils import *
-from CDL.utils.keras_utils import extract_feature_maps, modify_model, identify_residual_layer_indexes
+from CDL.utils.keras_utils import extract_feature_maps, modify_model, identify_residual_layer_indexes, mean_squared_diff
 from CDL.utils.custom_callbacks import UnfreezeLayersCallback, LearningRateSchedulerCallback
 from CDL.utils.custom_generators import Imagenet_generator, Imagenet_train_shunt_generator
 
@@ -34,10 +34,6 @@ from tensorflow.python.util import dispatch
 from matplotlib import pyplot as plt
 
 from sklearn.metrics import classification_report
-
-def mean_squared_diff(y_true, y_pred):
-    #y_pred = ops.convert_to_tensor_v2_with_dispatch(y_pred)
-    return tf.reduce_mean(K.square(y_pred))
 
 
 if __name__ == '__main__':
@@ -347,9 +343,8 @@ if __name__ == '__main__':
             if modes['test_shunt_model']:
                 print('Test shunt model')
                 val_dummy_data = np.zeros((len_val_data,))
-                val_loss_shunt, val_acc_shunt, = model_training_shunt.evaluate(x_test, val_dummy_data, verbose=1)
+                val_loss_shunt = model_training_shunt.evaluate(x_test, val_dummy_data, verbose=1)
                 print('Loss: {:.5f}'.format(val_loss_shunt))
-                print('Accuracy: {:.5f}'.format(val_acc_shunt))
 
 
     model_final = modify_model(model_original, layer_indexes_to_delete=range(loc1, loc2+1), shunt_to_insert=model_shunt) # +1 needed because of the way range works

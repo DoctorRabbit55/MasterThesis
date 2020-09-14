@@ -22,6 +22,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import os
 import numpy as np
 import tensorflow as tf
 import keras
@@ -357,4 +358,31 @@ def Deeplabv3(weights='pascal_voc', input_tensor=None, input_shape=(512, 512, 3)
 
     model = Model(inputs, x, name='deeplabv3plus')
 
+    if weights == 'pascal_voc':
+        load_pascal_voc_weights(model, 'C:/Users/bha/Documents/CDL/Tensorflow_2.2/python_code/saved/models/deeplabv3_mnv2_pascal_trainval/numpy/')
+
     return model
+
+
+def load_pascal_voc_weights(model, weightspath):
+
+    for layer in model.layers:   
+        if isinstance(layer, keras.models.Model):
+            for nested_layer in layer.layers:
+                if nested_layer.weights:
+                    weights = []
+                    for w in nested_layer.weights:
+                        weight_name = os.path.basename(w.name).replace(':0', '')
+                        weight_file = nested_layer.name + '_' + weight_name + '.npy'
+                        weight_arr = np.load(os.path.join(weightspath, weight_file))
+                        weights.append(weight_arr)
+                    nested_layer.set_weights(weights)          
+        else:
+            if layer.weights:
+                weights = []
+                for w in layer.weights:
+                    weight_name = os.path.basename(w.name).replace(':0', '')
+                    weight_file = layer.name + '_' + weight_name + '.npy'
+                    weight_arr = np.load(os.path.join(weightspath, weight_file))
+                    weights.append(weight_arr)
+                layer.set_weights(weights)     

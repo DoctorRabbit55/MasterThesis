@@ -13,7 +13,7 @@ from CDL.utils.calculateFLOPS import calculateFLOPs_model, calculateFLOPs_blocks
 from CDL.utils.dataset_utils import *
 from CDL.utils.get_knowledge_quotients import get_knowledge_quotients
 from CDL.utils.generic_utils import *
-from CDL.utils.keras_utils import extract_feature_maps, modify_model, MyMeanIOU, categorical_crossentropy_masked, load_segmentation_weights
+from CDL.utils.keras_utils import extract_feature_maps, modify_model, mean_iou, mean_squared_diff
 from CDL.utils.custom_callbacks import UnfreezeLayersCallback
 
 import tensorflow as tf
@@ -36,27 +36,28 @@ if __name__ == '__main__':
     config.read(config_path)
 
     modes = {}
-    modes['calc knowledge quotient'] = config['GENERAL'].getboolean('calc knowledge quotient')
-    modes['train original model'] = config['GENERAL'].getboolean('train original model')
-    modes['train final model'] = config['GENERAL'].getboolean('train final model')
-    modes['train shunt model'] = config['GENERAL'].getboolean('train shunt model')
-    loglevel = config['GENERAL'].getint('logging level')
-    save_models = config['GENERAL'].getboolean('save models')
+    modes['calc_knowledge_quotients'] = config['GENERAL'].getboolean('calc_knowledge_quotients')
+    modes['train_original_model'] = config['GENERAL'].getboolean('train_original_model')
+    modes['train_final_model'] = config['GENERAL'].getboolean('train_final_model')
+    modes['train_shunt_model'] = config['GENERAL'].getboolean('train_shunt_model')
+    modes['test_shunt_model'] = config['GENERAL'].getboolean('test_shunt_model')
+    modes['test_fine-tune_strategies'] = config['GENERAL'].getboolean('test_fine-tune_strategies')
+    modes['test_latency'] = config['GENERAL'].getboolean('test_latency')
+    loglevel = 20
 
     dataset_name = config['DATASET']['name']
     dataset_path = config['DATASET']['path']
-    num_classes = config['DATASET'].getint('number classes')
 
     backbone_type = config['MODEL']['backbone']
-    load_model_from_file = config['MODEL'].getboolean('from file')
+    number_change_stride_layers = config['MODEL'].getint('change_stride_layers')
+    load_model_from_file = config['MODEL'].getboolean('from_file')
     if (load_model_from_file):
         model_file_path = config['MODEL']['filepath']
     else:
-        pretrained_on_imagenet = config['MODEL'].getboolean('pretrained on imagenet')
-        scale_to_imagenet = config['MODEL'].getboolean('scale to imagenet')
+        scale_to_imagenet = config['MODEL'].getboolean('scale_to_imagenet')
+    input_image_size = config['MODEL'].getint('input_image_size')
     pretrained = config['MODEL'].getboolean('pretrained')
-    if pretrained:
-        weights_file_path = Path(config['MODEL']['weightspath'])
+    weights_file_path = config['MODEL']['weightspath']
     
     training_original_model = config['TRAINING_ORIGINAL_MODEL']
     training_shunt_model = config['TRAINING_SHUNT_MODEL']
@@ -64,17 +65,17 @@ if __name__ == '__main__':
 
     shunt_params = {}
     shunt_params['arch'] = config['SHUNT'].getint('arch')
+    shunt_params['use_se'] = config['SHUNT'].getboolean('use_squeeze_and_excite')
     shunt_params['locations'] = tuple(map(int, config['SHUNT']['location'].split(',')))
     shunt_params['from_file'] = config['SHUNT'].getboolean('from file')
     shunt_params['filepath'] = config['SHUNT']['filepath']
     shunt_params['pretrained'] = config['SHUNT'].getboolean('pretrained')
     shunt_params['weightspath'] = config['SHUNT']['weightspath']
     shunt_params['featuremapspath'] = config['SHUNT']['featuremapspath']
-    
+
     final_model_params = {}
     final_model_params['pretrained'] = config['FINAL_MODEL'].getboolean('pretrained')
     final_model_params['weightspath'] = config['FINAL_MODEL']['weightspath']
-
     # init logging
     folder_name_logging = Path(sys.path[0], "log", time.strftime("%Y%m%d"), time.strftime("%H_%M_%S"))
     Path(folder_name_logging).mkdir(parents=True, exist_ok=True)
@@ -89,9 +90,12 @@ if __name__ == '__main__':
 
     copyfile(config_path, Path(folder_name_logging, "config.cfg"))
 
+    file_names_train = file_names_val = x_dir = y_dir = None
+
     if dataset_name == 'VOC2012':
 
         input_shape = (512,512,3)
+        num_classes = 21
 
         x_dir = Path(dataset_path, "JPEGImages")
         y_dir = Path(dataset_path, "SegmentationClassRaw")
@@ -102,12 +106,12 @@ if __name__ == '__main__':
             for l in f:
                 file_names_val.append(l[:-1])
 
-        with open(Path(dataset_path, "ImageSets/Segmentation/train.txt")) as f:
+        with open(Path(dataset_path, "ImageSets/Segmentation/trainval.txt")) as f:
             for l in f:
                 file_names_train.append(l[:-1])
 
-        datagen_val = VOC2012_generator(x_dir=x_dir, y_dir=y_dir, file_names=file_names_val, batch_size=16)
-        datagen_train = VOC2012_generator(x_dir=x_dir, y_dir=y_dir, file_names=file_names_train, batch_size=16)
+        datagen_val = VOC2012_generator(x_dir=x_dir, y_dir=y_dir, file_names=file_names_val, batch_size=32)
+        datagen_train = VOC2012_generator(x_dir=x_dir, y_dir=y_dir, file_names=file_names_train, batch_size=32)
 
         print('VOC2012 was loaded successfully!')
 
@@ -118,8 +122,8 @@ if __name__ == '__main__':
     if backbone_type == 'MobileNetV2':
         if load_model_from_file:
             model_original = keras.models.load_model(model_file_path)
-        elif pretrained_on_imagenet:
-            model_original = Deeplabv3(is_pretrained=True, num_classes=num_classes)
+        elif weights_file_path == 'pascal_voc':
+            model_original = Deeplabv3(backbone='MobileNetV2', weights='pascal_voc', classes=num_classes)
         else:
             model_original = Deeplabv3(weights=None, input_shape=input_shape, classes=21, backbone='MobileNetV2', OS=8)
 
@@ -134,18 +138,18 @@ if __name__ == '__main__':
             model_original = Deeplabv3(weights=None, input_shape=input_shape, classes=21, backbone='MobileNetV3')
 
     if pretrained:
-        model_original = load_segmentation_weights(model_original, weights_file_path)
+        model_original = model_original.load_weights(weights_file_path)
         print('Weights loaded successfully!')
 
 
     batch_size_original = training_original_model.getint('batchsize')
-    epochs_first_cycle_original = training_original_model.getint('epochs first cycle')
-    epochs_second_cycle_original = training_original_model.getint('epochs second cycle')
+    epochs_first_cycle_original = training_original_model.getint('epochs_first_cycle')
+    epochs_second_cycle_original = training_original_model.getint('epochs_second_cycle')
     epochs_original = epochs_first_cycle_original + epochs_second_cycle_original
-    learning_rate_first_cycle_original = training_original_model.getfloat('learning rate first cycle')
-    learning_rate_second_cycle_original = training_original_model.getfloat('learning rate second cycle')
+    learning_rate_first_cycle_original = training_original_model.getfloat('learning_rate_first_cycle')
+    learning_rate_second_cycle_original = training_original_model.getfloat('learning_rate_second_cycle')
 
-    model_original.compile(loss=[categorical_crossentropy_masked], optimizer=keras.optimizers.SGD(lr=0.1, momentum=0.9, decay=0.0), metrics=[MyMeanIOU(num_classes=21)])
+    model_original.compile(loss=['categorical_crossentropy'], optimizer=keras.optimizers.SGD(lr=0.1, momentum=0.9, decay=0.0), metrics=[mean_iou])
 
     logging.info('')
     logging.info('#######################################################################################################')
@@ -153,32 +157,31 @@ if __name__ == '__main__':
     logging.info('#######################################################################################################')
     logging.info('')
     model_original.summary(print_fn=logger.info, line_length=150)
-    print('DeeplabV3 with {} backbone successfully created!'.format(backbone_type))
+    print('DeeplabV3 with {} backbone created successfully!'.format(backbone_type))
 
     flops_original = calculateFLOPs_model(model_original)
 
-    callback_checkpoint = keras.callbacks.ModelCheckpoint(str(Path(folder_name_logging, "original_model_weights.h5")), save_best_only=False, save_weights_only=True)
+    callback_checkpoint = keras.callbacks.ModelCheckpoint(str(Path(folder_name_logging, "original_model_weights.h5")), save_best_only=True, save_weights_only=True)
     callback_learning_rate = LearningRateSchedulerCallback(epochs_first_cycle=epochs_first_cycle_original, learning_rate_second_cycle=learning_rate_second_cycle_original)
 
-    if modes['train original model']:
+    if modes['train_original_model']:
         print('Train original model:')
-        history_original = model_original.fit(datagen_train, epochs=epochs_original, validation_data=(x_test, y_test), verbose=1, callbacks=[callback_checkpoint, callback_learning_rate])
-        model_original.save_weights(str(Path(folder_name_logging, "original_model_weights.h5")))
-        save_history_plot(history_original, "original", folder_name_logging)
+        history_original = model_original.fit(datagen_train, epochs=epochs_original, validation_data=datagen_val, verbose=1, callbacks=[callback_checkpoint, callback_learning_rate])
+        model_original.load_weights(str(Path(folder_name_logging, "original_model_weights.h5")))
+        save_history_plot(history_original, "original", folder_name_logging, ['loss', 'mean_iou'])
 
     # test original model
     print('Test original model')
-    val_loss_original, val_entropy_original, val_acc_original = model_original.evaluate(datagen_val, verbose=1)
+    val_loss_original, val_iou_original = model_original.evaluate(datagen_val, verbose=1)
     print('Loss: {:.5f}'.format(val_loss_original))
-    print('Entropy: {:.5f}'.format(val_entropy_original))
-    print('Accuracy: {:.4f}'.format(val_acc_original))
+    print('mIOU: {:.4f}'.format(val_iou_original))
 
     if modes['calc knowledge quotients']:
-        know_quot = get_knowledge_quotients(model=model_original, data=(x_test, y_test), val_acc_model=val_acc_original)
+        know_quot = get_knowledge_quotients(model=model_original, data=datagen_val, val_acc_model=val_iou_original)
         logging.info('')
         logging.info('################# RESULT ###################')
         logging.info('')
-        logging.info('Original model: loss: {:.5f}, acc: {:.5f}'.format(val_loss_original, val_acc_original))
+        logging.info('Original model: loss: {:.5f}, mIOU: {:.5f}'.format(val_loss_original, val_iou_original))
         logging.info('')
         for (residual_idx, end_idx, value) in know_quot:
             logging.info("Block starts with: {}, location: {}".format(model_original.get_layer(index=residual_idx+1).name, residual_idx+1))
@@ -224,51 +227,39 @@ if __name__ == '__main__':
     learning_rate_first_cycle_shunt = training_shunt_model.getfloat('learning rate first cycle')
     learning_rate_second_cycle_shunt = training_shunt_model.getfloat('learning rate second cycle')
 
+    model_training_shunt = create_shunt_trainings_model(model_original, model_shunt, (loc1, loc2))
+    model_training_shunt.compile(loss=mean_squared_diff, optimizer=keras.optimizers.Adam(learning_rate=learning_rate_first_cycle_shunt, decay=0.0))
+    model_training_shunt.add_loss(mean_squared_diff(None, model_training_shunt.outputs[0]))
+
+    if shunt_params['pretrained']:
+        model_training_shunt.load_weights(shunt_params['weightspath'])
+        print('Shunt weights loaded successfully!')
+
     model_shunt.compile(loss=keras.losses.mean_squared_error, optimizer=keras.optimizers.Adam(learning_rate=learning_rate_first_cycle_shunt, decay=0.0), metrics=[keras.metrics.MeanSquaredError()])
 
-    callback_checkpoint = keras.callbacks.ModelCheckpoint(str(Path(folder_name_logging, "shunt_model_weights.h5")), save_best_only=False, save_weights_only=True)
+    callback_checkpoint = keras.callbacks.ModelCheckpoint(str(Path(folder_name_logging, "shunt_model_weights.h5")), save_best_only=True, save_weights_only=True)
     callback_learning_rate = LearningRateSchedulerCallback(epochs_first_cycle=epochs_first_cycle_shunt, learning_rate_second_cycle=learning_rate_second_cycle_shunt)
 
     # Feature maps
 
     if modes['test shunt model'] or modes['train shunt model']:
 
-        fm1_train = fm2_train = fm1_test = fm2_test = None
-        
-        if os.path.isfile(Path(shunt_params['featuremapspath'], "fm1_train_{}_{}.npy".format(loc1, loc2))):
-        
-            fm1_train = np.load(Path(shunt_params['featuremapspath'], "fm1_train_{}_{}.npy".format(loc1, loc2)))
-            fm2_train = np.load(Path(shunt_params['featuremapspath'], "fm2_train_{}_{}.npy".format(loc1, loc2)))
-            fm1_test = np.load(Path(shunt_params['featuremapspath'], "fm1_test_{}_{}.npy".format(loc1, loc2)))
-            fm2_test = np.load(Path(shunt_params['featuremapspath'], "fm2_test_{}_{}.npy".format(loc1, loc2)))
-            print('Feature maps loaded successfully!')
-
-        else:
-            
-            print('Feature maps extracting started:')
-            (fm1_train, fm2_train)  = extract_feature_maps(model_original, x_train, [loc1-1, loc2]) # -1 since we need the input of the layer
-            (fm1_test, fm2_test) = extract_feature_maps(model_original, x_test, [loc1-1, loc2]) # -1 since we need the input of the layer
-
-            np.save(Path(shunt_params['featuremapspath'], "fm1_train_{}_{}".format(loc1, loc2)), fm1_train)
-            np.save(Path(shunt_params['featuremapspath'], "fm2_train_{}_{}".format(loc1, loc2)), fm2_train)
-            np.save(Path(shunt_params['featuremapspath'], "fm1_test_{}_{}".format(loc1, loc2)), fm1_test)
-            np.save(Path(shunt_params['featuremapspath'], "fm2_test_{}_{}".format(loc1, loc2)), fm2_test)
-
-            logging.info('')
-            logging.info('Featuremaps saved to {}'.format(shunt_params['featuremapspath']))
-
-        if modes['train shunt model']:
+        if modes['train_shunt_model']:
             print('Train shunt model:')
-            history_shunt = model_shunt.fit(x=fm1_train, y=fm2_train, batch_size=batch_size_shunt, epochs=epochs_shunt, validation_data=(fm1_test, fm2_test), verbose=1, callbacks=[callback_checkpoint, callback_learning_rate])
-            save_history_plot(history_shunt, "shunt", folder_name_logging)
 
-        if modes['test shunt model']:
+            datagen_val_dummy = VOC2012_generator(x_dir=x_dir, y_dir=y_dir, file_names=file_names_val, batch_size=batch_size_shunt, include_labels=False)
+            datagen_train_dummy = VOC2012_generator(x_dir=x_dir, y_dir=y_dir, file_names=file_names_train, batch_size=batch_size_shunt, include_labels=False)
+
+            history_shunt = model_training_shunt.fit(datagen_train_dummy, epochs=epochs_shunt, steps_per_epoch=len_train_data//batch_size_shunt, validation_data=datagen_val_dummy, verbose=1, callbacks=[callback_checkpoint, callback_learning_rate],
+                                                        use_multiprocessing=True, workers=32, max_queue_size=64)
+            save_history_plot(history_shunt, "shunt", folder_name_logging, ['loss'])
+            model_training_shunt.load_weights(str(Path(folder_name_logging, "shunt_model_weights.h5")))
+
+        if modes['test_shunt_model']:
             print('Test shunt model')
-            val_loss_shunt, val_acc_shunt, = model_shunt.evaluate(fm1_test, fm2_test, verbose=1)
+            datagen_val_dummy = VOC2012_generator(x_dir=x_dir, y_dir=y_dir, file_names=file_names_val, batch_size=batch_size_shunt, include_labels=False)
+            val_loss_shunt = model_training_shunt.evaluate(datagen_val_dummy, verbose=1)
             print('Loss: {:.5f}'.format(val_loss_shunt))
-            print('Accuracy: {:.5f}'.format(val_acc_shunt))
-
-        fm1_test = fm1_train = fm2_test = fm2_train = None
 
 
     model_final = modify_model(model_original, layer_indexes_to_delete=range(loc1, loc2+1), shunt_to_insert=model_shunt) # +1 needed because of the way range works
@@ -307,7 +298,7 @@ if __name__ == '__main__':
     logging.info('')
     model_final.summary(print_fn=logger.info, line_length=150)
 
-    callback_checkpoint = keras.callbacks.ModelCheckpoint(str(Path(folder_name_logging, "final_model_weights.h5")), save_best_only=False, save_weights_only=True)
+    callback_checkpoint = keras.callbacks.ModelCheckpoint(str(Path(folder_name_logging, "final_model_weights.h5")), save_best_only=True, save_weights_only=True)
     callback_learning_rate = LearningRateSchedulerCallback(epochs_first_cycle=epochs_first_cycle_final, learning_rate_second_cycle=learning_rate_second_cycle_final)
     callbacks = [callback_checkpoint]
 

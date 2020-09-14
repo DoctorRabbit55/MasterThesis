@@ -13,19 +13,28 @@ from pathlib import Path
 from tensorflow.keras.applications import MobileNetV2
 #from keras_applications.mobilenet_v3 import MobileNetV3Small
 
-def categorical_crossentropy_masked(y_true, y_pred):
-    return K.mean(K.categorical_crossentropy(y_true, y_pred))
+def mean_squared_diff(y_true, y_pred):
+    return tf.reduce_mean(K.square(y_pred))
 
-class MyMeanIOU(tf.keras.metrics.MeanIoU):
+def mean_iou(y_true, y_pred):
+    nb_classes = K.int_shape(y_pred)[-1]
+    iou = []
+    pred_pixels = K.argmax(y_pred, axis=-1)
+    true_pixels = K.argmax(y_true, axis=-1)
+    for i in range(0, nb_classes): # exclude first label (background) and last label (void)
+        true_labels = K.equal(true_pixels, i)
+        pred_labels = K.equal(pred_pixels, i)
+        inter = tf.cast(true_labels & pred_labels, dtype=tf.int32)
+        union = tf.cast(true_labels | pred_labels, dtype=tf.int32)
+        legal_batches = K.sum(tf.cast(true_labels, dtype=tf.int32), axis=1)>0
+        ious = K.sum(inter, axis=1)/K.sum(union, axis=1)
+        iou.append(K.mean(ious[legal_batches]))
 
-    def __init__(self, num_classes):
-        super().__init__(num_classes)
+    iou = tf.stack(iou)
+    legal_labels = ~tf.math.is_nan(iou)
+    iou = iou[legal_labels]
 
-    def update_state(self, y_true, y_pred, sample_weight=None):
-        pred = tf.argmax(y_pred[:,:,:,:], axis=-1)
-        gt = tf.argmax(y_true[:,:,:,:], axis=-1)
-        weights = tf.cast(tf.less_equal(y_true, 20), tf.int32)
-        return super().update_state(gt, pred)
+    return K.mean(iou)
 
 class HardSwish(Activation):
 
@@ -213,32 +222,6 @@ def extract_feature_maps(model, x_data, locations, x_data_path=None, data_count=
             predictions = model.predict(x_data, verbose=1)
 
     return predictions[:-1]
-
-def load_segmentation_weights(model, weightspath):
-
-    for layer in model.layers:
-    
-        if isinstance(layer, keras.models.Model):
-            for nested_layer in layer.layers:
-                if nested_layer.weights:
-                    weights = []
-                    for w in nested_layer.weights:
-                        weight_name = w.name.replace(':0', '').split('/')[1]
-                        weight_file = nested_layer.name + '_' + weight_name + '.npy'
-                        weight_arr = np.load(weightspath / weight_file)
-                        weights.append(weight_arr)
-                    nested_layer.set_weights(weights)          
-        else:
-            if layer.weights:
-                weights = []
-                for w in layer.weights:
-                    weight_name = w.name.replace(':0', '').split('/')[1]
-                    weight_file = layer.name + '_' + weight_name + '.npy'
-                    weight_arr = np.load(weightspath / weight_file)
-                    weights.append(weight_arr)
-                layer.set_weights(weights)        
-
-    return model
 
 def add_regularization(model, regularizer=keras.regularizers.l2(4e-5)):
 
