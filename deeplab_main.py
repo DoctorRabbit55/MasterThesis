@@ -17,14 +17,14 @@ from CDL.utils.keras_utils import extract_feature_maps, modify_model, mean_iou, 
 from CDL.utils.custom_callbacks import UnfreezeLayersCallback
 
 import tensorflow as tf
-from keras.datasets import cifar10
-from keras.utils import to_categorical
-from keras.preprocessing.image import ImageDataGenerator
+from tensorflow.keras.datasets import cifar10
+from tensorflow.keras.utils import to_categorical
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from CDL.utils.custom_generators import VOC2012_generator
 from CDL.utils.custom_callbacks import LearningRateSchedulerCallback
 
-import keras
-import keras.backend as K
+import tensorflow.keras as keras
+import tensorflow.keras.backend as K
 
 from matplotlib import pyplot as plt
 
@@ -176,8 +176,8 @@ if __name__ == '__main__':
     print('Loss: {:.5f}'.format(val_loss_original))
     print('mIOU: {:.4f}'.format(val_iou_original))
 
-    if modes['calc knowledge quotients']:
-        know_quot = get_knowledge_quotients(model=model_original, data=datagen_val, val_acc_model=val_iou_original)
+    if modes['calc_knowledge_quotients']:
+        know_quot = get_knowledge_quotients(model=model_original, data=datagen_val, val_acc_model=val_iou_original, metric=mean_iou)
         logging.info('')
         logging.info('################# RESULT ###################')
         logging.info('')
@@ -250,7 +250,7 @@ if __name__ == '__main__':
             datagen_val_dummy = VOC2012_generator(x_dir=x_dir, y_dir=y_dir, file_names=file_names_val, batch_size=batch_size_shunt, include_labels=False)
             datagen_train_dummy = VOC2012_generator(x_dir=x_dir, y_dir=y_dir, file_names=file_names_train, batch_size=batch_size_shunt, include_labels=False)
 
-            history_shunt = model_training_shunt.fit(datagen_train_dummy, epochs=epochs_shunt, steps_per_epoch=len_train_data//batch_size_shunt, validation_data=datagen_val_dummy, verbose=1, callbacks=[callback_checkpoint, callback_learning_rate],
+            history_shunt = model_training_shunt.fit(datagen_train_dummy, epochs=epochs_shunt, validation_data=datagen_val_dummy, verbose=1, callbacks=[callback_checkpoint, callback_learning_rate],
                                                         use_multiprocessing=True, workers=32, max_queue_size=64)
             save_history_plot(history_shunt, "shunt", folder_name_logging, ['loss'])
             model_training_shunt.load_weights(str(Path(folder_name_logging, "shunt_model_weights.h5")))
