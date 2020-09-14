@@ -141,7 +141,6 @@ if __name__ == '__main__':
             vertical_flip=False,
             horizontal_flip=False)
         
-
         print('CIFAR10 was loaded successfully!')
 
 
@@ -230,10 +229,11 @@ if __name__ == '__main__':
             history_original = model_original.fit(datagen_train.flow(x_train, y_train, batch_size=batch_size_original), epochs=epochs_original, validation_data=(x_test, y_test), verbose=1, callbacks=[callback_checkpoint, callback_learning_rate])
 
         model_original.load_weights(str(Path(folder_name_logging, "original_model_weights.h5")))
-        #save_history_plot(history_original, "original", folder_name_logging)
+        save_history_plot(history_original, "original", folder_name_logging, ['categorical_crossentropy', 'loss', 'accuracy'])
 
     # test original model
-    '''
+    
+    
     print('Test original model')
     if dataset_name == 'imagenet':
         val_loss_original, val_entropy_original, val_acc_original = model_original.evaluate(datagen_val, verbose=1, use_multiprocessing=True, workers=32, max_queue_size=64)
@@ -242,7 +242,8 @@ if __name__ == '__main__':
     print('Loss: {:.5f}'.format(val_loss_original))
     print('Entropy: {:.5f}'.format(val_entropy_original))
     print('Accuracy: {:.4f}'.format(val_acc_original))
-    '''
+    
+
     if modes['calc_knowledge_quotients']:
         if dataset_name == 'imagenet':
             know_quot = get_knowledge_quotients(model=model_original, datagen=datagen_val, val_acc_model=val_acc_original)
@@ -291,12 +292,9 @@ if __name__ == '__main__':
     learning_rate_first_cycle_shunt = training_shunt_model.getfloat('learning_rate_first_cycle')
     learning_rate_second_cycle_shunt = training_shunt_model.getfloat('learning_rate_second_cycle')
 
-    # if feature maps do not fit in memory, feature map extracting model has to be used
-    #if dataset_name == 'imagenet':
     model_training_shunt = create_shunt_trainings_model(model_original, model_shunt, (loc1, loc2))
     model_training_shunt.compile(loss=mean_squared_diff, optimizer=keras.optimizers.Adam(learning_rate=learning_rate_first_cycle_shunt, decay=0.0))
     model_training_shunt.add_loss(mean_squared_diff(None, model_training_shunt.outputs[0]))
-    print(model_training_shunt.summary())
 
     if shunt_params['pretrained']:
         if dataset_name == 'imagenet':
@@ -313,11 +311,7 @@ if __name__ == '__main__':
     callback_checkpoint = keras.callbacks.ModelCheckpoint(str(Path(folder_name_logging, "shunt_model_weights.h5")), save_best_only=True, monitor='val_loss', mode='min', save_weights_only=True)
     callback_learning_rate = LearningRateSchedulerCallback(epochs_first_cycle=epochs_first_cycle_shunt, learning_rate_second_cycle=learning_rate_second_cycle_shunt)
 
-    # Feature maps
-
     if modes['test_shunt_model'] or modes['train_shunt_model']:
-
-        fm1_train = fm2_train = fm1_test = fm2_test = None
         
         if dataset_name == 'imagenet':
 
@@ -328,7 +322,7 @@ if __name__ == '__main__':
 
                 history_shunt = model_training_shunt.fit(zip(datagen_train.flow_from_directory(dataset_train_image_path, class_mode=None, shuffle=True, target_size=(224,224), batch_size=batch_size_shunt), train_dummy_data), epochs=epochs_shunt, steps_per_epoch=len_train_data//batch_size_shunt, validation_data=datagen_val_dummy, verbose=1, callbacks=[callback_checkpoint, callback_learning_rate],
                                                          use_multiprocessing=True, workers=32, max_queue_size=64)
-
+                save_history_plot(history_shunt, "shunt", folder_name_logging, ['loss'])
                 model_training_shunt.load_weights(str(Path(folder_name_logging, "shunt_model_weights.h5")))
 
             if modes['test_shunt_model']:
@@ -356,44 +350,6 @@ if __name__ == '__main__':
                 val_loss_shunt, val_acc_shunt, = model_training_shunt.evaluate(x_test, val_dummy_data, verbose=1)
                 print('Loss: {:.5f}'.format(val_loss_shunt))
                 print('Accuracy: {:.5f}'.format(val_acc_shunt))
-            '''
-            if os.path.isfile(Path(shunt_params['featuremapspath'], "fm1_train_{}_{}.npy".format(loc1, loc2))):
-                fm1_train = np.load(Path(shunt_params['featuremapspath'], "fm1_train_{}_{}.npy".format(loc1, loc2)))
-                fm2_train = np.load(Path(shunt_params['featuremapspath'], "fm2_train_{}_{}.npy".format(loc1, loc2)))
-                fm1_test = np.load(Path(shunt_params['featuremapspath'], "fm1_test_{}_{}.npy".format(loc1, loc2)))
-                fm2_test = np.load(Path(shunt_params['featuremapspath'], "fm2_test_{}_{}.npy".format(loc1, loc2)))
-                print('Feature maps loaded successfully!')
-            else:              
-                print('Feature maps extracting started:')
-                (fm1_train, fm2_train)  = extract_feature_maps(model_original, x_train, [loc1-1, loc2]) # -1 since we need the input of the layer
-                (fm1_test, fm2_test) = extract_feature_maps(model_original, x_test, [loc1-1, loc2]) # -1 since we need the input of the layer
-
-                np.save(Path(shunt_params['featuremapspath'], "fm1_train_{}_{}".format(loc1, loc2)), fm1_train)
-                np.save(Path(shunt_params['featuremapspath'], "fm2_train_{}_{}".format(loc1, loc2)), fm2_train)
-                np.save(Path(shunt_params['featuremapspath'], "fm1_test_{}_{}".format(loc1, loc2)), fm1_test)
-                np.save(Path(shunt_params['featuremapspath'], "fm2_test_{}_{}".format(loc1, loc2)), fm2_test)
-
-                logging.info('')
-                logging.info('Featuremaps saved to {}'.format(shunt_params['featuremapspath']))
-
-            data_train = (fm1_train, fm2_train)
-            data_val = (fm1_test, fm2_test)
-
-            if modes['train_shunt_model']:
-                print('Train shunt model:')
-                history_shunt = model_shunt.fit(data_train[0], y=data_train[1], batch_size=batch_size_shunt, epochs=epochs_shunt, validation_data=data_val, verbose=1, callbacks=[callback_checkpoint, callback_learning_rate])
-                #save_history_plot(history_shunt, "shunt", folder_name_logging)
-                model_shunt.load_weights(str(Path(folder_name_logging, "shunt_model_weights.h5")))
-
-            if modes['test_shunt_model']:
-                print('Test shunt model')
-                val_loss_shunt, val_acc_shunt, = model_shunt.evaluate(fm1_test, fm2_test, verbose=1)
-                print('Loss: {:.5f}'.format(val_loss_shunt))
-                print('Accuracy: {:.5f}'.format(val_acc_shunt))
-
-            '''
-
-        fm1_test = fm1_train = fm2_test = fm2_train = None
 
 
     model_final = modify_model(model_original, layer_indexes_to_delete=range(loc1, loc2+1), shunt_to_insert=model_shunt) # +1 needed because of the way range works
@@ -519,68 +475,7 @@ if __name__ == '__main__':
         
         if training_final_model['finetune_strategy'] == 'feature_maps':
             pass
-            '''
-            residual_layer_dic, _ = identify_residual_layer_indexes(model_final)
-            #residual_layer_dic = {}
-            residual_layer_dic[len(model_final.layers)-1] = len(model_final.layers)-2
-            fine_tune_locations = residual_layer_dic.keys()
-
-            for location in fine_tune_locations:
-
-                if location <= loc1+len(model_shunt.layers):
-                    continue
-
-
-                model_reduced = modify_model(model_final, layer_indexes_to_delete=range(location+1,len(model_final.layers)))
-
-                fm1_train = fm2_train = fm1_test = fm2_test = None
-        
-                if os.path.isfile(Path(shunt_params['featuremapspath'], "ft1_train_{}_{}.npy".format(residual_layer_dic[location], location))):
-                
-                    ft1_train = np.load(Path(shunt_params['featuremapspath'], "ft1_train_{}_{}.npy".format(residual_layer_dic[location], location)))
-                    ft2_train = np.load(Path(shunt_params['featuremapspath'], "ft2_train_{}_{}.npy".format(residual_layer_dic[location], location)))
-                    ft1_test = np.load(Path(shunt_params['featuremapspath'], "ft1_test_{}_{}.npy".format(residual_layer_dic[location], location)))
-                    ft2_test = np.load(Path(shunt_params['featuremapspath'], "ft2_test_{}_{}.npy".format(residual_layer_dic[location], location)))
-                    print('Feature maps loaded successfully!')
-
-                else:
-                    
-                    print('Feature maps extracting started:')
-
-                    loc1_original_model = (loc2-loc1)-len(model_shunt.layers) + residual_layer_dic[location]
-                    loc2_original_model = (loc2-loc1)-len(model_shunt.layers) + location
-
-                    (_, ft2_train) = extract_feature_maps(model_original, x_train, [loc1_original_model+2, loc2_original_model+2]) # -1 since we need the input of the layer
-                    (_, ft2_test) = extract_feature_maps(model_original, x_test, [loc1_original_model+2, loc2_original_model+2]) # -1 since we need the input of the layer
-                    (ft1_train, _) = extract_feature_maps(model_final, x_train, [residual_layer_dic[location], location]) # -1 since we need the input of the layer
-                    (ft1_test, _) = extract_feature_maps(model_final, x_test, [residual_layer_dic[location], location]) # -1 since we need the input of the layer
-
-
-                    #np.save(Path(shunt_params['featuremapspath'], "ft1_train_{}_{}".format(loc1+len(model_shunt.layers), location)), ft1_train)
-                    #np.save(Path(shunt_params['featuremapspath'], "ft2_train_{}_{}".format(loc1+len(model_shunt.layers), location)), ft2_train)
-                    #np.save(Path(shunt_params['featuremapspath'], "ft1_test_{}_{}".format(loc1+len(model_shunt.layers), location)), ft1_test)
-                    #np.save(Path(shunt_params['featuremapspath'], "ft2_test_{}_{}".format(loc1+len(model_shunt.layers), location)), ft2_test)
-
-                    logging.info('')
-                    logging.info('Featuremaps saved to {}'.format(shunt_params['featuremapspath']))
-
-                model_reduced = modify_model(model_reduced, layer_indexes_to_delete=range(0,residual_layer_dic[location]+1))
-                model_reduced.compile(loss=keras.losses.mean_squared_error, optimizer=keras.optimizers.Adam(lr=learning_rate_first_cycle_final, decay=0.0), metrics=[keras.metrics.MeanSquaredError()])
-
-                print('Train reduced model:')
-                history_final = model_reduced.fit(x=ft1_train, y=ft2_train, batch_size=batch_size_final, epochs=epochs_final, validation_data=(ft1_test, ft2_test), verbose=1, callbacks=[callback_checkpoint, callback_learning_rate])
-                #save_history_plot(history_shunt, "final_{}".format(location), folder_name_logging)
-
-                model_final = modify_model(model_final, layer_indexes_to_delete=range(residual_layer_dic[location]+1, location+1), shunt_to_insert=model_reduced)
-                model_final.compile(loss='categorical_crossentropy', optimizer=keras.optimizers.SGD(lr=learning_rate_first_cycle_final, momentum=0.9, decay=0.0, nesterov=False), metrics=[keras.metrics.categorical_crossentropy, 'accuracy'])
-                #print(model_final.summary())
-
-                print('Test_final_model')
-                val_loss_finetuned, val_entropy_finetuned, val_acc_finetuned = model_final.evaluate(x_test, y_test, verbose=1)
-                print('Loss: {}'.format(val_loss_finetuned))
-                print('Entropy: {:.5f}'.format(val_entropy_finetuned))
-                print('Accuracy: {}'.format(val_acc_finetuned))
-            '''
+            
         else:
 
             if training_final_model['finetune_strategy'] == 'unfreeze_shunt':
@@ -620,7 +515,7 @@ if __name__ == '__main__':
                     history_final = model_final.fit(datagen_train.flow_from_directory(dataset_train_image_path, shuffle=True, target_size=(224,224), batch_size=batch_size_final), epochs=epochs_final, validation_data=(x_test, y_test), verbose=1, callbacks=callbacks)
                 elif dataset_name == 'CIFAR10':
                     history_final = model_final.fit(datagen_train.flow(x_train, y_train, batch_size=batch_size_final), epochs=epochs_final, validation_data=(x_test, y_test), verbose=1, callbacks=callbacks)
-                #save_history_plot(history_final, "final", folder_name_logging)
+                save_history_plot(history_final, "final", folder_name_logging, ['categorical_crossentropy', 'loss', 'accuracy'])
 
                 model_final.load_weights(str(Path(folder_name_logging, "final_model_weights.h5")))
 
