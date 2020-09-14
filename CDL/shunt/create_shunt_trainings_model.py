@@ -11,7 +11,7 @@ from CDL.shunt.Architectures import createShunt
 from CDL.utils.keras_utils import HardSwish, hard_swish, identify_residual_layer_indexes
 
 def create_shunt_trainings_model(model, model_shunt, shunt_locations):
-
+    '''
     get_custom_objects().update({'hard_swish': hard_swish})
 
     add_input_index_dic, mult_input_index_dic = identify_residual_layer_indexes(model)
@@ -47,8 +47,10 @@ def create_shunt_trainings_model(model, model_shunt, shunt_locations):
         if i == shunt_locations[0]-1: # input of shunt
             print('input shunt:', layer.name)
             shunt_input = x
+    '''
 
-    output_original_model = x
+    shunt_input = model.layers[shunt_locations[0]-1].output
+    output_original_model = model.layers[shunt_locations[1]].output
     output_original_model = Flatten()(output_original_model)
     #output_original_model = K.l2_normalize(output_original_model,axis=1)
 
@@ -62,7 +64,7 @@ def create_shunt_trainings_model(model, model_shunt, shunt_locations):
     #x = keras.backend.sqrt(x)
     #x = Lambda(lambda x: x * 1/(model_shunt.output_shape[1]*model_shunt.output_shape[2]))(x)
 
-    model_training = keras.models.Model(inputs=input_net, outputs=[x], name='shunt_training')
+    model_training = keras.models.Model(inputs=model.input, outputs=[x], name='shunt_training')
 
     for j in range(1,len(model_training.layers)):
 
