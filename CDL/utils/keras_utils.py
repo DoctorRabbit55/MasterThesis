@@ -127,6 +127,7 @@ def modify_model(model, layer_indexes_to_delete=[], layer_indexes_to_output=[], 
                 should_delete = True
                 break
 
+        #print(i, "   ", layer.name)
 
         if should_delete:
             if shunt_to_insert and not got_shunt_inserted:
@@ -151,8 +152,6 @@ def modify_model(model, layer_indexes_to_delete=[], layer_indexes_to_output=[], 
                 shunt_output = x
                 got_shunt_inserted = True
             continue
-
-        #print(i, "   ", layer.name)
 
         if isinstance(next_layer, Multiply):
             second_input_index = mult_input_index_dic[i]
@@ -196,6 +195,7 @@ def modify_model(model, layer_indexes_to_delete=[], layer_indexes_to_output=[], 
 
         weights = model.get_layer(name=layer.name).get_weights()
         if len(weights) > 0:
+            #print(layer.name)
             model_reduced.layers[j].set_weights(weights)
 
     return model_reduced
