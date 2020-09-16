@@ -57,7 +57,7 @@ class Imagenet_train_shunt_generator(Sequence):
             img = image.load_img(str(self.x_dir / self.x_file_names[id]))
             #img = image.img_to_array(img)
 
-            height, width, _ = img.size
+            height, width = img.size
             new_height = height * 256 // min(img.size[:2])
             new_width = width * 256 // min(img.size[:2])
             img = image.img_to_array(img.resize((new_width, new_height), Image.BICUBIC))
@@ -116,7 +116,7 @@ class Imagenet_generator(Sequence):
             img = image.load_img(str(self.x_dir / self.x_file_names[id]))
             #img = image.img_to_array(img)
 
-            height, width, _ = img.size
+            height, width = img.size
             new_height = height * 256 // min(img.size[:2])
             new_width = width * 256 // min(img.size[:2])
             img = image.img_to_array(img.resize((new_width, new_height), Image.BICUBIC))
