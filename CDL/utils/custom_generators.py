@@ -111,7 +111,7 @@ class Imagenet_generator(Sequence):
             starty = height//2 - (224//2)
             X[i,:,:,:] = X[i,:,:,:][starty:starty+224,startx:startx+224]
             assert X[i,:,:,:].shape[0] == 224 and X[i,:,:,:].shape[1] == 224, (X[i,:,:,:].shape, height, width)
-            X[i,:,:,:] = np.asarray(X[i,:,:,:])
+            X[i,:,:,:] = np.asarray(X[i,:,:,::-1])
             X[i,:,:,:] = keras.applications.mobilenet.preprocess_input(X[i,:,:,:])
             y[i,:] = np.expand_dims(to_categorical(self.labels[id], num_classes=1000), 0)
             #print(self.labels[id])
