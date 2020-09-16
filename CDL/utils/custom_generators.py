@@ -98,8 +98,20 @@ class Imagenet_generator(Sequence):
 
         for i, id in enumerate(batch):
             #print(str(self.x_dir / self.x_file_names[id]))
-            X[i,:,:,:] = image.load_img(str(self.x_dir / self.x_file_names[id]), target_size=(224,224))
-            X[i,:,:,:] = image.img_to_array(X[i,:,:,:])
+            X[i,:,:,:] = cv2.imread(str(self.x_dir / self.x_file_names[id]))
+
+            height, width, _ = X[i,:,:,:].shape
+            new_height = height * 256 // min(X[i,:,:,:].shape[:2])
+            new_width = width * 256 // min(X[i,:,:,:].shape[:2])
+            X[i,:,:,:] = cv2.resize(X[i,:,:,:], (new_width, new_height), interpolation=cv2.INTER_CUBIC)
+            
+            # Crop
+            height, width, _ = X[i,:,:,:].shape
+            startx = width//2 - (224//2)
+            starty = height//2 - (224//2)
+            X[i,:,:,:] = X[i,:,:,:][starty:starty+224,startx:startx+224]
+            assert X[i,:,:,:].shape[0] == 224 and X[i,:,:,:].shape[1] == 224, (X[i,:,:,:].shape, height, width)
+            X[i,:,:,:] = np.asarray(X[i,:,:,:])
             X[i,:,:,:] = keras.applications.mobilenet.preprocess_input(X[i,:,:,:])
             y[i,:] = np.expand_dims(to_categorical(self.labels[id], num_classes=1000), 0)
             #print(self.labels[id])
@@ -138,7 +150,8 @@ class VOC2012_generator(Sequence):
     def __get_data(self, batch):
 
         X = np.zeros((len(batch),512,512,3))
-        y = np.zeros((len(batch),512,512,21)) if self.include_labels else y = None
+        if self.include_labels: y = np.zeros((len(batch),512,512,21)) 
+        else: y = None
 
         for i, id in enumerate(batch):
 
