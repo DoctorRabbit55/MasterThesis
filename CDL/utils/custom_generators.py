@@ -55,12 +55,12 @@ class Imagenet_train_shunt_generator(Sequence):
         for i, id in enumerate(batch):
             #print(str(self.x_dir / self.x_file_names[id]))
             img = image.load_img(str(self.x_dir / self.x_file_names[id]))
-            img = image.img_to_array(img)
+            #img = image.img_to_array(img)
 
             height, width, _ = img.shape
             new_height = height * 256 // min(img.shape[:2])
             new_width = width * 256 // min(img.shape[:2])
-            img = imresize(img, (new_width, new_height), interpolation='bicubic')
+            img = np.array(img.resize((new_width, new_height), Image.BICUBIC))
             
             # Crop
             height, width, _ = img.shape
