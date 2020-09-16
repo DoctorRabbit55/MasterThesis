@@ -12,7 +12,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import cv2
 
-from scipy.misc import imresize
+from PIL import Image
 
 class Imagenet_train_shunt_generator(Sequence):
 
@@ -119,7 +119,7 @@ class Imagenet_generator(Sequence):
             height, width, _ = img.shape
             new_height = height * 256 // min(img.shape[:2])
             new_width = width * 256 // min(img.shape[:2])
-            img = imresize(img, (new_width, new_height), interpolation='bicubic')
+            img = np.array(Image.fromarray(img).resize((new_width, new_height), Image.BICUBIC))
             
             # Crop
             height, width, _ = img.shape
