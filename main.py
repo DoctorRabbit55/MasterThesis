@@ -35,8 +35,11 @@ from matplotlib import pyplot as plt
 
 from sklearn.metrics import classification_report
 
+import multiprocessing
 
 if __name__ == '__main__':
+
+    multiprocessing.set_start_method('spawn')
 
     # READ CONFIG
     config_path = Path(sys.path[0], "config", "classification.cfg")
@@ -242,9 +245,9 @@ if __name__ == '__main__':
 
     if modes['calc_knowledge_quotients']:
         if dataset_name == 'imagenet':
-            know_quot = get_knowledge_quotients(model=model_original, datagen=datagen_val, val_acc_model=val_acc_original)
+            know_quot = get_knowledge_quotients(model=model_original, datagen=datagen_val, val_acc_model=val_acc_original, metric=keras.metrics.categorical_accuracy)
         elif dataset_name == 'CIFAR10':
-            know_quot = get_knowledge_quotients(model=model_original, datagen=(x_test, y_test), val_acc_model=val_acc_original)
+            know_quot = get_knowledge_quotients(model=model_original, datagen=(x_test, y_test), val_acc_model=val_acc_original, metric=keras.metrics.categorical_accuracy)
 
         logging.info('')
         logging.info('################# RESULT ###################')
@@ -281,6 +284,10 @@ if __name__ == '__main__':
     logging.info('')
     logging.info('Shunt model saved to {}'.format(folder_name_logging))
     
+    logging.info('')
+    logging.info('Block')
+
+
     batch_size_shunt = training_shunt_model.getint('batchsize')
     epochs_first_cycle_shunt = training_shunt_model.getint('epochs_first_cycle')
     epochs_second_cycle_shunt = training_shunt_model.getint('epochs_second_cycle')
