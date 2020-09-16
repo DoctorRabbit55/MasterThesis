@@ -98,20 +98,20 @@ class Imagenet_generator(Sequence):
 
         for i, id in enumerate(batch):
             #print(str(self.x_dir / self.x_file_names[id]))
-            X[i,:,:,:] = cv2.imread(str(self.x_dir / self.x_file_names[id]))
+            img = cv2.imread(str(self.x_dir / self.x_file_names[id]))
 
-            height, width, _ = X[i,:,:,:].shape
-            new_height = height * 256 // min(X[i,:,:,:].shape[:2])
-            new_width = width * 256 // min(X[i,:,:,:].shape[:2])
-            X[i,:,:,:] = cv2.resize(X[i,:,:,:], (new_width, new_height), interpolation=cv2.INTER_CUBIC)
+            height, width, _ = img.shape
+            new_height = height * 256 // min(img.shape[:2])
+            new_width = width * 256 // min(img.shape[:2])
+            img = cv2.resize(img, (new_width, new_height), interpolation=cv2.INTER_CUBIC)
             
             # Crop
-            height, width, _ = X[i,:,:,:].shape
+            height, width, _ = img.shape
             startx = width//2 - (224//2)
             starty = height//2 - (224//2)
-            X[i,:,:,:] = X[i,:,:,:][starty:starty+224,startx:startx+224]
-            assert X[i,:,:,:].shape[0] == 224 and X[i,:,:,:].shape[1] == 224, (X[i,:,:,:].shape, height, width)
-            X[i,:,:,:] = np.asarray(X[i,:,:,::-1])
+            img = img[starty:starty+224,startx:startx+224]
+            assert img.shape[0] == 224 and img.shape[1] == 224, (img.shape, height, width)
+            X[i,:,:,:] = np.asarray(img)
             X[i,:,:,:] = keras.applications.mobilenet.preprocess_input(X[i,:,:,:])
             y[i,:] = np.expand_dims(to_categorical(self.labels[id], num_classes=1000), 0)
             #print(self.labels[id])
