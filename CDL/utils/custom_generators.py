@@ -98,20 +98,8 @@ class Imagenet_generator(Sequence):
 
         for i, id in enumerate(batch):
             #print(str(self.x_dir / self.x_file_names[id]))
-            img = cv2.imread(str(self.x_dir / self.x_file_names[id]))
-
-            height, width, _ = img.shape
-            new_height = height * 256 // min(img.shape[:2])
-            new_width = width * 256 // min(img.shape[:2])
-            img = cv2.resize(img, (new_width, new_height), interpolation=cv2.INTER_CUBIC)
-            
-            # Crop
-            height, width, _ = img.shape
-            startx = width//2 - (224//2)
-            starty = height//2 - (224//2)
-            img = img[starty:starty+224,startx:startx+224]
-            assert img.shape[0] == 224 and img.shape[1] == 224, (img.shape, height, width)
-            X[i,:,:,:] = np.asarray(img)
+            X[i,:,:,:] = image.load_img(str(self.x_dir / self.x_file_names[id]), target_size=(224,224), interpolation='bicubic')
+            X[i,:,:,:] = image.img_to_array(X[i,:,:,:])
             X[i,:,:,:] = keras.applications.mobilenet.preprocess_input(X[i,:,:,:])
             y[i,:] = np.expand_dims(to_categorical(self.labels[id], num_classes=1000), 0)
             #print(self.labels[id])

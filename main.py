@@ -35,11 +35,8 @@ from matplotlib import pyplot as plt
 
 from sklearn.metrics import classification_report
 
-import multiprocessing
 
 if __name__ == '__main__':
-
-    multiprocessing.set_start_method('spawn')
 
     # READ CONFIG
     config_path = Path(sys.path[0], "config", "classification.cfg")
