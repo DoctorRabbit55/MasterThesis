@@ -37,10 +37,9 @@ def get_knowledge_quotient(model, datagen, val_acc_model, locations):
         if add_layer_index in range(locations[0], locations[1]+1):
             start_layer_index = add_input_dic[add_layer_index] + 1
             indexes_to_delete = indexes_to_delete + list(range(start_layer_index, add_layer_index+1))
-    print(indexes_to_delete)
 
     model_reduced = modify_model(model, indexes_to_delete)
-    print(model_reduced.summary())
+
     model_reduced.compile(loss='categorical_crossentropy', optimizer=SGD(lr=2e-2, momentum=0.9, decay=0.0, nesterov=False), metrics=['accuracy'])
 
     if isinstance(datagen, tuple):
