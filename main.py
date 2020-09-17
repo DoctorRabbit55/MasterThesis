@@ -273,7 +273,6 @@ if __name__ == '__main__':
         know_quot = get_knowledge_quotient(model=model_original, datagen=(x_test, y_test), val_acc_model=val_acc_original, locations=[loc1, loc2])
     logging.info('')
     logging.info('know_quot of all blocks: {:.3f}'.format(know_quot))
-    exit()
 
     if shunt_params['from_file']:
         model_shunt = keras.models.load_model(shunt_params['filepath'])
