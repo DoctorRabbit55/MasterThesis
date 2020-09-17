@@ -14,7 +14,7 @@ from CDL.shunt import Architectures
 from CDL.shunt.create_shunt_trainings_model import create_shunt_trainings_model
 from CDL.utils.calculateFLOPS import calculateFLOPs_model, calculateFLOPs_blocks
 from CDL.utils.dataset_utils import *
-from CDL.utils.get_knowledge_quotients import get_knowledge_quotients
+from CDL.utils.get_knowledge_quotients import get_knowledge_quotients, get_knowledge_quotient
 from CDL.utils.generic_utils import *
 from CDL.utils.keras_utils import extract_feature_maps, modify_model, identify_residual_layer_indexes, mean_squared_diff
 from CDL.utils.custom_callbacks import UnfreezeLayersCallback, LearningRateSchedulerCallback
@@ -266,7 +266,15 @@ if __name__ == '__main__':
 
     loc1 = shunt_params['locations'][0]
     loc2 = shunt_params['locations'][1]
-    
+
+    if dataset_name == 'imagenet':
+        know_quot = get_knowledge_quotient(model=model_original, datagen=datagen_val, val_acc_model=val_acc_original, locations=[loc1, loc2])
+    elif dataset_name == 'CIFAR10':
+        know_quot = get_knowledge_quotient(model=model_original, datagen=(x_test, y_test), val_acc_model=val_acc_original, locations=[loc1, loc2])
+    logging.info('')
+    logging.info('know_quot of all blocks: {:.3f}'.format(know_quot))
+    exit()
+
     if shunt_params['from_file']:
         model_shunt = keras.models.load_model(shunt_params['filepath'])
         print('Shunt model loaded successfully!')

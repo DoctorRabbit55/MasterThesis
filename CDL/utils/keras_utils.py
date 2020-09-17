@@ -69,7 +69,6 @@ def identify_residual_layer_indexes(model):
     layers = model.layers
     add_incoming_index_dic = {}
     mult_incoming_index_dic = {}
-    concat_incoming_index_dic = {}
 
     for i in range(len(layers)):
 
@@ -85,18 +84,13 @@ def identify_residual_layer_indexes(model):
             incoming_index = get_first_layer_by_index(model, input_layers)
             mult_incoming_index_dic[i] = incoming_index
 
-        if isinstance(layer, Concatenate):
-            input_layers = layer._inbound_nodes[-1].inbound_layers
-            incoming_index = get_first_layer_by_index(model, input_layers)
-            concat_incoming_index_dic[i] = incoming_index
-        
-    return add_incoming_index_dic, mult_incoming_index_dic, concat_incoming_index_dic
+    return add_incoming_index_dic, mult_incoming_index_dic
 
 def modify_model(model, layer_indexes_to_delete=[], layer_indexes_to_output=[], shunt_to_insert=None, is_deeplab=False):
     from CDL.models.deeplabv3p import deeplab_head
 
     get_custom_objects().update({'hard_swish': hard_swish})
-    add_input_index_dic, mult_input_index_dic, _ = identify_residual_layer_indexes(model)
+    add_input_index_dic, mult_input_index_dic = identify_residual_layer_indexes(model)
     add_input_tensors = {}
     mult_input_tensors = {}
 
@@ -141,6 +135,8 @@ def modify_model(model, layer_indexes_to_delete=[], layer_indexes_to_output=[], 
                 should_delete = True
                 break
 
+        #print(i, "   ", layer.name)
+
         if should_delete:
             if shunt_to_insert and not got_shunt_inserted:
                 add_input_index_shunt_dic, mult_input_index_shunt_dic, _ = identify_residual_layer_indexes(shunt_to_insert)
@@ -160,12 +156,10 @@ def modify_model(model, layer_indexes_to_delete=[], layer_indexes_to_output=[], 
                         add_input_shunt_tensors[j] = x
                     if j in mult_input_index_shunt_dic.values():
                         mult_input_shunt_tensors[j] = x
-                
+
                 shunt_output = x
                 got_shunt_inserted = True
             continue
-
-        #print(i, "   ", layer.name, "      ", layer.output_shape)
 
         if layer.name == 'start_deeplab':
             break
@@ -218,6 +212,7 @@ def modify_model(model, layer_indexes_to_delete=[], layer_indexes_to_output=[], 
 
         weights = model.get_layer(name=layer.name).get_weights()
         if len(weights) > 0:
+            #print(layer.name)
             model_reduced.layers[j].set_weights(weights)
 
     return model_reduced
