@@ -502,6 +502,9 @@ if __name__ == '__main__':
 
             if training_final_model['finetune_strategy'] == 'unfreeze_all':
                 callbacks.append(callback_learning_rate)
+                for i, layer in enumerate(model_final.layers):
+                    if i < loc2+1 and isinstance(layer, keras.layers.BatchNormalization):
+                        layer.trainable = False
 
             if training_final_model['finetune_strategy'] == 'unfreeze_per_epoch_starting_shunt':
                 callback_unfreeze = UnfreezeLayersCallback(epochs=epochs_final, epochs_per_unfreeze=2, learning_rate=learning_rate_first_cycle_final, unfreeze_to_index=0, start_at=loc1+len(model_shunt.layers)-2, direction=1)
