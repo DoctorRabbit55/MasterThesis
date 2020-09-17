@@ -139,7 +139,7 @@ def modify_model(model, layer_indexes_to_delete=[], layer_indexes_to_output=[], 
 
         if should_delete:
             if shunt_to_insert and not got_shunt_inserted:
-                add_input_index_shunt_dic, mult_input_index_shunt_dic, _ = identify_residual_layer_indexes(shunt_to_insert)
+                add_input_index_shunt_dic, mult_input_index_shunt_dic = identify_residual_layer_indexes(shunt_to_insert)
                 add_input_shunt_tensors = {}
                 mult_input_shunt_tensors = {}
                 for j, shunt_layer in enumerate(shunt_to_insert.layers[1:]):
