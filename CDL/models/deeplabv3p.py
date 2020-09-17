@@ -25,12 +25,11 @@ from __future__ import print_function
 import os
 import numpy as np
 import tensorflow as tf
-import keras
+import tensorflow.keras as keras
 
 from tensorflow.keras.models import Model
-from tensorflow.keras.activations import relu
-from tensorflow.keras.layers import Layer, InputSpec, Conv2D, DepthwiseConv2D, UpSampling2D, ZeroPadding2D, Lambda, AveragePooling2D, Input, Activation, Concatenate, Add, Reshape, BatchNormalization, Dropout, GlobalAveragePooling2D
-from keras.utils import get_source_inputs
+from tensorflow.keras.layers import Layer, InputSpec, Conv2D, DepthwiseConv2D, UpSampling2D, ZeroPadding2D, Lambda, AveragePooling2D, Input, Activation, Concatenate, Add, Reshape, BatchNormalization, Dropout, GlobalAveragePooling2D, ReLU
+from tensorflow.keras.utils import get_source_inputs
 from tensorflow.keras import backend as K
 
 from .MobileNet_v2 import MobileNetV2
@@ -170,7 +169,7 @@ def _inverted_res_block(inputs, expansion, stride, alpha, filters, block_id, ski
                    name=prefix + 'expand')(x)
         x = BatchNormalization(epsilon=1e-3, momentum=0.999,
                                name=prefix + 'expand_BN')(x)
-        x = Activation(tf.nn.relu6, name=prefix + 'expand_relu')(x)
+        x = ReLU(6., name=prefix + 'expand_relu')(x)
     else:
         prefix = 'expanded_conv_'
     # Depthwise
@@ -180,7 +179,7 @@ def _inverted_res_block(inputs, expansion, stride, alpha, filters, block_id, ski
     x = BatchNormalization(epsilon=1e-3, momentum=0.999,
                            name=prefix + 'depthwise_BN')(x)
 
-    x = Activation(tf.nn.relu6, name=prefix + 'depthwise_relu')(x)
+    x = ReLU(6., name=prefix + 'depthwise_relu')(x)
 
     # Project
     x = Conv2D(pointwise_filters,
@@ -194,6 +193,39 @@ def _inverted_res_block(inputs, expansion, stride, alpha, filters, block_id, ski
 
     # if in_channels == pointwise_filters and stride == 1:
     #    return Add(name='res_connect_' + str(block_id))([inputs, x])
+
+    return x
+
+def deeplab_head(x, img_input, classes):
+
+    b4 = GlobalAveragePooling2D(name='start_deeplab')(x)
+    # from (b_size, channels)->(b_size, 1, 1, channels)
+    b4 = Lambda(lambda x: K.expand_dims(x, 1), name='lambda0')(b4)
+    b4 = Lambda(lambda x: K.expand_dims(x, 1), name='lambda1')(b4)
+    b4 = Conv2D(256, (1, 1), padding='same',
+                use_bias=False, name='image_pooling')(b4)
+    b4 = BatchNormalization(name='image_pooling_BN', epsilon=1e-5)(b4)
+    b4 = ReLU(6., name='image_pooling_relu')(b4)
+    # upsample. have to use compat because of the option align_corners
+    size_before = tf.keras.backend.int_shape(x)
+    b4 = Lambda(lambda x: tf.compat.v1.image.resize(x, size_before[1:3],
+                                                    method='bilinear', align_corners=True, name='lambda2'))(b4)
+    # simple 1x1
+    b0 = Conv2D(256, (1, 1), padding='same', use_bias=False, name='aspp0')(x)
+    b0 = BatchNormalization(name='aspp0_BN', epsilon=1e-5)(b0)
+    b0 = ReLU(6., name='aspp0_relu')(b0)
+
+    x = Concatenate(name='concat_deeplab')([b4, b0])
+
+    x = Conv2D(256, (1, 1), padding='same',
+               use_bias=False, name='concat_projection')(x)
+    x = BatchNormalization(name='concat_projection_BN', epsilon=1e-5)(x)
+    x = ReLU(6., name='concat_projection_relu')(x)
+    x = Dropout(0.1, name='dropout_deeplab')(x)
+    x = Conv2D(classes, (1, 1), padding='same', name='logits_semantic')(x)
+    size_before3 = tf.keras.backend.int_shape(img_input)
+    x = Lambda(lambda xx: tf.compat.v1.image.resize(xx, size_before3[1:3], method='bilinear', align_corners=True, name='lambda3'))(x)
+    x = tf.keras.layers.Activation('softmax')(x)
 
     return x
 
@@ -248,11 +280,9 @@ def Deeplabv3(weights='pascal_voc', input_tensor=None, input_shape=(512, 512, 3)
         img_input = input_tensor
 
     if backbone == 'MobileNetV2':
-        mobilenet = MobileNetV2(input_shape=input_shape, weights=None, include_top=False, output_stride=OS, backend=keras.backend, layers=keras.layers, models=keras.models, utils=keras.utils)
-        x = mobilenet(img_input)
+        #mobilenet = MobileNetV2(input_shape=input_shape, weights=None, include_top=False, output_stride=OS, backend=keras.backend, layers=keras.layers, models=keras.models, utils=keras.utils)
+        #x = mobilenet(img_input)
         
-        '''
-        OS = 8
         first_block_filters = _make_divisible(32 * alpha, 8)
         x = Conv2D(first_block_filters,
                    kernel_size=3,
@@ -260,7 +290,7 @@ def Deeplabv3(weights='pascal_voc', input_tensor=None, input_shape=(512, 512, 3)
                    use_bias=False, name='Conv')(img_input)
         x = BatchNormalization(
             epsilon=1e-3, momentum=0.999, name='Conv_BN')(x)
-        x = Activation(tf.nn.relu6, name='Conv_Relu6')(x)
+        x = ReLU(6., name='Conv_Relu6')(x)
 
         x = _inverted_res_block(x, filters=16, alpha=alpha, stride=1,
                                 expansion=1, block_id=0, skip_connection=False)
@@ -277,89 +307,48 @@ def Deeplabv3(weights='pascal_voc', input_tensor=None, input_shape=(512, 512, 3)
         x = _inverted_res_block(x, filters=32, alpha=alpha, stride=1,
                                 expansion=6, block_id=5, skip_connection=True)
 
+        if OS == 16:
+            rate = 1
+            stride = 2
+        else:
+            rate = 2
+            stride = 1
+
         # stride in block 6 changed from 2 -> 1, so we need to use rate = 2
-        x = _inverted_res_block(x, filters=64, alpha=alpha, stride=1,  # 1!
+        x = _inverted_res_block(x, filters=64, alpha=alpha, stride=stride,  # 1!
                                 expansion=6, block_id=6, skip_connection=False)
-        x = _inverted_res_block(x, filters=64, alpha=alpha, stride=1, rate=2,
+        x = _inverted_res_block(x, filters=64, alpha=alpha, stride=1, rate=rate,
                                 expansion=6, block_id=7, skip_connection=True)
-        x = _inverted_res_block(x, filters=64, alpha=alpha, stride=1, rate=2,
+        x = _inverted_res_block(x, filters=64, alpha=alpha, stride=1, rate=rate,
                                 expansion=6, block_id=8, skip_connection=True)
-        x = _inverted_res_block(x, filters=64, alpha=alpha, stride=1, rate=2,
+        x = _inverted_res_block(x, filters=64, alpha=alpha, stride=1, rate=rate,
                                 expansion=6, block_id=9, skip_connection=True)
 
-        x = _inverted_res_block(x, filters=96, alpha=alpha, stride=1, rate=2,
+        x = _inverted_res_block(x, filters=96, alpha=alpha, stride=1, rate=rate,
                                 expansion=6, block_id=10, skip_connection=False)
-        x = _inverted_res_block(x, filters=96, alpha=alpha, stride=1, rate=2,
+        x = _inverted_res_block(x, filters=96, alpha=alpha, stride=1, rate=rate,
                                 expansion=6, block_id=11, skip_connection=True)
-        x = _inverted_res_block(x, filters=96, alpha=alpha, stride=1, rate=2,
+        x = _inverted_res_block(x, filters=96, alpha=alpha, stride=1, rate=rate,
                                 expansion=6, block_id=12, skip_connection=True)
 
-        x = _inverted_res_block(x, filters=160, alpha=alpha, stride=1, rate=2,  # 1!
+        x = _inverted_res_block(x, filters=160, alpha=alpha, stride=1, rate=rate,  # 1!
                                 expansion=6, block_id=13, skip_connection=False)
-        x = _inverted_res_block(x, filters=160, alpha=alpha, stride=1, rate=4,
+        x = _inverted_res_block(x, filters=160, alpha=alpha, stride=1, rate=2*rate,
                                 expansion=6, block_id=14, skip_connection=True)
-        x = _inverted_res_block(x, filters=160, alpha=alpha, stride=1, rate=4,
+        x = _inverted_res_block(x, filters=160, alpha=alpha, stride=1, rate=2*rate,
                                 expansion=6, block_id=15, skip_connection=True)
 
-        x = _inverted_res_block(x, filters=320, alpha=alpha, stride=1, rate=4,
+        x = _inverted_res_block(x, filters=320, alpha=alpha, stride=1, rate=2*rate,
                                 expansion=6, block_id=16, skip_connection=False)
-        '''
-
+        
     # end of feature extractor
 
-    # branching for Atrous Spatial Pyramid Pooling
+    x = deeplab_head(x, img_input, classes)
 
-    # Image Feature branch
-    shape_before = tf.shape(x)
-    b4 = GlobalAveragePooling2D()(x)
-    # from (b_size, channels)->(b_size, 1, 1, channels)
-    b4 = Lambda(lambda x: K.expand_dims(x, 1))(b4)
-    b4 = Lambda(lambda x: K.expand_dims(x, 1))(b4)
-    b4 = Conv2D(256, (1, 1), padding='same',
-                use_bias=False, name='image_pooling')(b4)
-    b4 = BatchNormalization(name='image_pooling_BN', epsilon=1e-5)(b4)
-    b4 = Activation(tf.nn.relu)(b4)
-    # upsample. have to use compat because of the option align_corners
-    size_before = tf.keras.backend.int_shape(x)
-    b4 = Lambda(lambda x: tf.compat.v1.image.resize(x, size_before[1:3],
-                                                    method='bilinear', align_corners=True))(b4)
-    # simple 1x1
-    b0 = Conv2D(256, (1, 1), padding='same', use_bias=False, name='aspp0')(x)
-    b0 = BatchNormalization(name='aspp0_BN', epsilon=1e-5)(b0)
-    b0 = Activation(tf.nn.relu, name='aspp0_activation')(b0)
-
-    x = Concatenate()([b4, b0])
-
-    x = Conv2D(256, (1, 1), padding='same',
-               use_bias=False, name='concat_projection')(x)
-    x = BatchNormalization(name='concat_projection_BN', epsilon=1e-5)(x)
-    x = Activation(tf.nn.relu)(x)
-    x = Dropout(0.1)(x)
-
-    # you can use it with arbitary number of classes
-    if (classes == 21):
-        last_layer_name = 'logits_semantic'
-    else:
-        last_layer_name = 'custom_logits_semantic'
-
-    x = Conv2D(classes, (1, 1), padding='same', name=last_layer_name)(x)
-    size_before3 = tf.keras.backend.int_shape(img_input)
-    x = Lambda(lambda xx: tf.compat.v1.image.resize(xx, size_before3[1:3], method='bilinear', align_corners=True))(x)
-
-    # Ensure that the model takes into account
-    # any potential predecessors of `input_tensor`.
-    if input_tensor is not None:
-        inputs = get_source_inputs(input_tensor)
-    else:
-        inputs = img_input
-
-    if activation in {'softmax', 'sigmoid'}:
-        x = tf.keras.layers.Activation(activation)(x)
-
-    model = Model(inputs, x, name='deeplabv3plus')
+    model = Model(img_input, x, name='deeplabv3plus')
 
     if weights == 'pascal_voc':
-        load_pascal_voc_weights(model, 'C:/Users/bha/Documents/CDL/Tensorflow_2.2/python_code/saved/models/deeplabv3_mnv2_pascal_trainval/numpy/')
+        load_pascal_voc_weights(model, 'E:\Masterarbeit\MasterThesis\saved\models\deeplabv3_mnv2_pascal_trainval/numpy/')
 
     return model
 

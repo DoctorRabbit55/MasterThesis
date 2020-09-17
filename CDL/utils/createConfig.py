@@ -123,7 +123,7 @@ if __name__ == '__main__':
         config['TRAINING_SHUNT_MODEL'] = {'batchsize': 64,
                                         'epochs_first_cycle': 50,
                                         'learning_rate_first_cycle': 1e-1,
-                                        'epochs_second_cycle': 500,
+                                        'epochs_second_cycle': 50,
                                         'learning_rate_second_cycle': 1e-3}
 
         config['TRAINING_FINAL_MODEL'] = {'finetune_strategy': 'unfreeze_all',
