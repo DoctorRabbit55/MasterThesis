@@ -29,4 +29,9 @@ def create_shunt_trainings_model(model, model_shunt, shunt_locations):
 
     model_training = keras.models.Model(inputs=model.input, outputs=[x], name='shunt_training')
 
+    model_training = keras.models.Model(inputs=model.input, outputs=[x], name='shunt_training')
+    for layer in model_training.layers: layer.trainable = False
+    model_training.get_layer(name=model_shunt.name).trainable = True
+
+
     return model_training
