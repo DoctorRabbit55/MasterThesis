@@ -9,6 +9,7 @@ import numpy as np
 
 from CDL.models.deeplabv3p import Deeplabv3
 from CDL.shunt import Architectures
+from CDL.shunt.create_shunt_trainings_model import create_shunt_trainings_model
 from CDL.utils.calculateFLOPS import calculateFLOPs_model, calculateFLOPs_blocks
 from CDL.utils.dataset_utils import *
 from CDL.utils.get_knowledge_quotients import get_knowledge_quotients
@@ -17,14 +18,14 @@ from CDL.utils.keras_utils import extract_feature_maps, modify_model, mean_iou, 
 from CDL.utils.custom_callbacks import UnfreezeLayersCallback
 
 import tensorflow as tf
-from keras.datasets import cifar10
-from keras.utils import to_categorical
-from keras.preprocessing.image import ImageDataGenerator
+from tensorflow.keras.datasets import cifar10
+from tensorflow.keras.utils import to_categorical
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from CDL.utils.custom_generators import VOC2012_generator
 from CDL.utils.custom_callbacks import LearningRateSchedulerCallback
 
-import keras
-import keras.backend as K
+import tensorflow.keras as keras
+import tensorflow.keras.backend as K
 
 from matplotlib import pyplot as plt
 
@@ -110,8 +111,8 @@ if __name__ == '__main__':
             for l in f:
                 file_names_train.append(l[:-1])
 
-        datagen_val = VOC2012_generator(x_dir=x_dir, y_dir=y_dir, file_names=file_names_val, batch_size=32)
-        datagen_train = VOC2012_generator(x_dir=x_dir, y_dir=y_dir, file_names=file_names_train, batch_size=32)
+        datagen_val = VOC2012_generator(x_dir=x_dir, y_dir=y_dir, file_names=file_names_val, batch_size=1)
+        datagen_train = VOC2012_generator(x_dir=x_dir, y_dir=y_dir, file_names=file_names_train, batch_size=1)
 
         print('VOC2012 was loaded successfully!')
 
@@ -132,7 +133,7 @@ if __name__ == '__main__':
 
         if load_model_from_file:
             model_original = keras.models.load_model(model_file_path)
-        elif pretrained_on_imagenet:
+        elif weights_file_path == 'cityscapes':
             model_original = Deeplabv3(is_pretrained=True, num_classes=num_classes)
         else:
             model_original = Deeplabv3(weights=None, input_shape=input_shape, classes=21, backbone='MobileNetV3')
@@ -171,13 +172,13 @@ if __name__ == '__main__':
         save_history_plot(history_original, "original", folder_name_logging, ['loss', 'mean_iou'])
 
     # test original model
-    print('Test original model')
-    val_loss_original, val_iou_original = model_original.evaluate(datagen_val, verbose=1)
-    print('Loss: {:.5f}'.format(val_loss_original))
-    print('mIOU: {:.4f}'.format(val_iou_original))
+    #print('Test original model')
+    #val_loss_original, val_iou_original = model_original.evaluate(datagen_val, verbose=1)
+    #print('Loss: {:.5f}'.format(val_loss_original))
+    #print('mIOU: {:.4f}'.format(val_iou_original))
 
-    if modes['calc knowledge quotients']:
-        know_quot = get_knowledge_quotients(model=model_original, data=datagen_val, val_acc_model=val_iou_original)
+    if modes['calc_knowledge_quotients']:
+        know_quot = get_knowledge_quotients(model=model_original, datagen=datagen_val, val_acc_model=val_iou_original, metric=mean_iou, is_deeplab=True)
         logging.info('')
         logging.info('################# RESULT ###################')
         logging.info('')
@@ -221,11 +222,11 @@ if __name__ == '__main__':
     flops_shunt = calculateFLOPs_model(model_shunt)
 
     batch_size_shunt = training_shunt_model.getint('batchsize')
-    epochs_first_cycle_shunt = training_shunt_model.getint('epochs first cycle')
-    epochs_second_cycle_shunt = training_shunt_model.getint('epochs second cycle')
+    epochs_first_cycle_shunt = training_shunt_model.getint('epochs_first_cycle')
+    epochs_second_cycle_shunt = training_shunt_model.getint('epochs_second_cycle')
     epochs_shunt = epochs_first_cycle_shunt + epochs_second_cycle_shunt
-    learning_rate_first_cycle_shunt = training_shunt_model.getfloat('learning rate first cycle')
-    learning_rate_second_cycle_shunt = training_shunt_model.getfloat('learning rate second cycle')
+    learning_rate_first_cycle_shunt = training_shunt_model.getfloat('learning_rate_first_cycle')
+    learning_rate_second_cycle_shunt = training_shunt_model.getfloat('learning_rate_second_cycle')
 
     model_training_shunt = create_shunt_trainings_model(model_original, model_shunt, (loc1, loc2))
     model_training_shunt.compile(loss=mean_squared_diff, optimizer=keras.optimizers.Adam(learning_rate=learning_rate_first_cycle_shunt, decay=0.0))
@@ -242,16 +243,16 @@ if __name__ == '__main__':
 
     # Feature maps
 
-    if modes['test shunt model'] or modes['train shunt model']:
+    if modes['test_shunt_model'] or modes['train_shunt_model']:
 
         if modes['train_shunt_model']:
-            print('Train shunt model:')
+            print('Train_shunt_model:')
 
             datagen_val_dummy = VOC2012_generator(x_dir=x_dir, y_dir=y_dir, file_names=file_names_val, batch_size=batch_size_shunt, include_labels=False)
             datagen_train_dummy = VOC2012_generator(x_dir=x_dir, y_dir=y_dir, file_names=file_names_train, batch_size=batch_size_shunt, include_labels=False)
 
-            history_shunt = model_training_shunt.fit(datagen_train_dummy, epochs=epochs_shunt, steps_per_epoch=len_train_data//batch_size_shunt, validation_data=datagen_val_dummy, verbose=1, callbacks=[callback_checkpoint, callback_learning_rate],
-                                                        use_multiprocessing=True, workers=32, max_queue_size=64)
+            history_shunt = model_training_shunt.fit(datagen_train_dummy, epochs=epochs_shunt, validation_data=datagen_val_dummy, verbose=1, callbacks=[callback_checkpoint, callback_learning_rate],
+                                                        use_multiprocessing=False, workers=32, max_queue_size=64)
             save_history_plot(history_shunt, "shunt", folder_name_logging, ['loss'])
             model_training_shunt.load_weights(str(Path(folder_name_logging, "shunt_model_weights.h5")))
 
@@ -392,12 +393,18 @@ if __name__ == '__main__':
             for i, layer in enumerate(model_final.layers):
                 layer.trainable = False
 
+        if training_final_model['finetune strategy'] == 'unfreeze_all':
+            callbacks.append(callback_learning_rate)
+            for i, layer in enumerate(model_final.layers):
+                if i < loc1 - 1 or i > loc1 + len(model_shunt.layers):
+                    layer.trainable = False
+
         model_final.compile(loss='categorical_crossentropy', optimizer=keras.optimizers.SGD(lr=learning_rate_first_cycle_final, momentum=0.9, decay=0.0, nesterov=False), metrics=['accuracy'])
 
         if  modes['train final model']:
             print('Train final model:')
             history_final = model_final.fit(datagen.flow(x_train, y_train, batch_size=batch_size_final), epochs=epochs_final, validation_data=(x_test, y_test), verbose=1, callbacks=callbacks)
-            save_history_plot(history_final, "final", folder_name_logging)
+            save_history_plot(history_final, "final", folder_name_logging, ['loss', 'mean_iou'])
 
             print('Test final model')
             val_loss_finetuned, val_acc_finetuned = model_final.evaluate(x_test, y_test, verbose=1)
@@ -419,9 +426,6 @@ if __name__ == '__main__':
         logging.info('Inserted model: loss: {:.5f}, acc: {:.5f}'.format(val_loss_inserted, val_acc_inserted))
         if  modes['train final model']: logging.info('Finetuned model: loss: {:.5f}, acc: {:.5f}'.format(val_loss_finetuned, val_acc_finetuned))
 
-        Y_test = np.argmax(y_test, axis=1) # Convert one-hot to index
-        y_pred = np.argmax(model_final.predict(x_test), axis=1)
-        print(classification_report(Y_test, y_pred))
 
     # latency test
 

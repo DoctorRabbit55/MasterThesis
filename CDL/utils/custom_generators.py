@@ -166,7 +166,7 @@ class VOC2012_generator(Sequence):
     def __get_data(self, batch):
 
         X = np.zeros((len(batch),512,512,3))
-        if self.include_labels: y = np.zeros((len(batch),512,512,21)) 
+        if self.include_labels: y = np.zeros((len(batch),512,512,21))
         else: y = None
 
         for i, id in enumerate(batch):

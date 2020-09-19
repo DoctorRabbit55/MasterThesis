@@ -2,7 +2,7 @@ import tensorflow as tf
 import tensorflow.keras as keras
 import tensorflow.keras.backend as K
 
-from tensorflow.keras.layers import Add, Multiply, Input, Activation
+from tensorflow.keras.layers import Add, Multiply, Input, Activation, Concatenate
 from tensorflow.keras.layers import deserialize as layer_from_config
 from keras.utils.generic_utils import get_custom_objects
 
@@ -10,6 +10,7 @@ import unittest
 import numpy as np
 from pathlib import Path
 
+from tensorflow.keras.layers import ReLU, Lambda
 from tensorflow.keras.applications import MobileNetV2
 #from keras_applications.mobilenet_v3 import MobileNetV3Small
 
@@ -21,7 +22,7 @@ def mean_iou(y_true, y_pred):
     iou = []
     pred_pixels = K.argmax(y_pred, axis=-1)
     true_pixels = K.argmax(y_true, axis=-1)
-    for i in range(0, nb_classes): # exclude first label (background) and last label (void)
+    for i in range(1, nb_classes): # exclude first label (background) and last label (void)
         true_labels = K.equal(true_pixels, i)
         pred_labels = K.equal(pred_pixels, i)
         inter = tf.cast(true_labels & pred_labels, dtype=tf.int32)
@@ -48,6 +49,11 @@ def hard_swish(x):
 def get_index_of_layer(model, layer):
     for i in range(len(model.layers)):
         if layer.name == model.layers[i].name:
+            return i
+
+def get_index_by_name(model, name):
+    for i in range(len(model.layers)):
+        if name == model.layers[i].name:
             return i
 
 def get_first_layer_by_index(model, layers):
@@ -77,17 +83,19 @@ def identify_residual_layer_indexes(model):
             input_layers = layer._inbound_nodes[-1].inbound_layers
             incoming_index = get_first_layer_by_index(model, input_layers)
             mult_incoming_index_dic[i] = incoming_index
-        
+
     return add_incoming_index_dic, mult_incoming_index_dic
 
-def modify_model(model, layer_indexes_to_delete=[], layer_indexes_to_output=[], shunt_to_insert=None):
+def modify_model(model, layer_indexes_to_delete=[], layer_indexes_to_output=[], shunt_to_insert=None, is_deeplab=False):
+    from CDL.models.deeplabv3p import deeplab_head
+
     get_custom_objects().update({'hard_swish': hard_swish})
     add_input_index_dic, mult_input_index_dic = identify_residual_layer_indexes(model)
     add_input_tensors = {}
     mult_input_tensors = {}
 
     outputs = []
-    
+
     got_shunt_inserted = False
     shunt_output = None
 
@@ -127,6 +135,7 @@ def modify_model(model, layer_indexes_to_delete=[], layer_indexes_to_output=[], 
                 should_delete = True
                 break
 
+        #print(i, "   ", layer.name)
 
         if should_delete:
             if shunt_to_insert and not got_shunt_inserted:
@@ -147,12 +156,13 @@ def modify_model(model, layer_indexes_to_delete=[], layer_indexes_to_output=[], 
                         add_input_shunt_tensors[j] = x
                     if j in mult_input_index_shunt_dic.values():
                         mult_input_shunt_tensors[j] = x
-                
+
                 shunt_output = x
                 got_shunt_inserted = True
             continue
 
-        #print(i, "   ", layer.name)
+        if layer.name == 'start_deeplab':
+            break
 
         if isinstance(next_layer, Multiply):
             second_input_index = mult_input_index_dic[i]
@@ -173,18 +183,24 @@ def modify_model(model, layer_indexes_to_delete=[], layer_indexes_to_output=[], 
             add_input_tensors[i] = x
         if i in mult_input_index_dic.values():
             mult_input_tensors[i] = x
-
         if i in layer_indexes_to_output:
             #print(layer.name)
             outputs.append(x)
 
+    if is_deeplab:
+        x = deeplab_head(x, model.input, 21)
+
     outputs.append(x)
     assert(len(outputs) == len(layer_indexes_to_output)+1)
-    model_reduced = keras.models.Model(inputs=input_net, outputs=outputs, name=model.name)
 
+
+    model_reduced = keras.models.Model(inputs=input_net, outputs=outputs, name=model.name)
+    #print(model_reduced.summary())
     for j in range(1,len(model_reduced.layers)):
 
         layer = model_reduced.layers[j]
+        if isinstance(layer, ReLU) or isinstance(layer, Lambda) or isinstance(layer, Activation):
+            continue
 
         # skip shunt
         if shunt_to_insert:
@@ -196,6 +212,7 @@ def modify_model(model, layer_indexes_to_delete=[], layer_indexes_to_output=[], 
 
         weights = model.get_layer(name=layer.name).get_weights()
         if len(weights) > 0:
+            #print(layer.name)
             model_reduced.layers[j].set_weights(weights)
 
     return model_reduced
