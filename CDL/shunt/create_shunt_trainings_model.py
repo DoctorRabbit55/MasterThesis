@@ -27,7 +27,6 @@ def create_shunt_trainings_model(model, model_shunt, shunt_locations):
     #x = keras.backend.sqrt(x)
     #x = Lambda(lambda x: x * 1/(model_shunt.output_shape[1]*model_shunt.output_shape[2]))(x)
 
-    model_training = keras.models.Model(inputs=model.input, outputs=[x], name='shunt_training')
 
     model_training = keras.models.Model(inputs=model.input, outputs=[x], name='shunt_training')
     for layer in model_training.layers: layer.trainable = False
