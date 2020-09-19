@@ -398,6 +398,8 @@ if __name__ == '__main__':
     callback_learning_rate = LearningRateSchedulerCallback(epochs_first_cycle=epochs_first_cycle_final, learning_rate_second_cycle=learning_rate_second_cycle_final)
     callbacks = [callback_checkpoint]
 
+    for layer in model_final.layers:    # reset trainable status of all layers
+        layer.trainable = True
     model_final.compile(loss='categorical_crossentropy', optimizer=keras.optimizers.SGD(lr=learning_rate_first_cycle_final, momentum=0.9, decay=0.0, nesterov=False), metrics=[keras.metrics.categorical_crossentropy, 'accuracy'])
 
     print('Test shunt inserted model')
@@ -521,7 +523,7 @@ if __name__ == '__main__':
             if  modes['train_final_model']:
                 print('Train final model:')
                 if dataset_name == 'imagenet':
-                    history_final = model_final.fit(datagen_train.flow_from_directory(dataset_train_image_path, shuffle=True, target_size=(224,224), batch_size=batch_size_final), epochs=epochs_final, validation_data=(x_test, y_test), verbose=1, callbacks=callbacks)
+                    history_final = model_final.fit(datagen_train.flow_from_directory(dataset_train_image_path, shuffle=True, target_size=(224,224), batch_size=batch_size_final), epochs=epochs_final, validation_data=(x_test, y_test), verbose=1, callbacks=callbacks, use_multiprocessing=True, workers=32, max_queue_size=128)
                 elif dataset_name == 'CIFAR10':
                     history_final = model_final.fit(datagen_train.flow(x_train, y_train, batch_size=batch_size_final), epochs=epochs_final, validation_data=(x_test, y_test), verbose=1, callbacks=callbacks)
                 save_history_plot(history_final, "final", folder_name_logging, ['categorical_crossentropy', 'loss', 'accuracy'])
