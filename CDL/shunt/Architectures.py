@@ -48,7 +48,7 @@ def createArch4(input_shape, output_shape, num_stride_layers, use_se):
     x = Conv2D(128, kernel_size=(1,1), strides=(1,1), padding='same', use_bias=False, activation=None, kernel_initializer="he_normal", kernel_regularizer=regularizers.l2(4e-5))(x)
     x = BatchNormalization(epsilon=1e-3, momentum=0.999)(x)
     x = ReLU(6.)(x)
-    if num_stride_layers > 1:
+    if num_stride_layers > 0:
         x = DepthwiseConv2D(kernel_size=(3,3), strides=(2,2), padding='same', use_bias=False, activation=None, kernel_initializer="he_normal", kernel_regularizer=regularizers.l2(4e-5))(x)
     else:
         x = DepthwiseConv2D(kernel_size=(3,3), strides=(1,1), padding='same', use_bias=False, activation=None, kernel_initializer="he_normal", kernel_regularizer=regularizers.l2(4e-5))(x)
