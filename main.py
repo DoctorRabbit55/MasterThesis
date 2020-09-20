@@ -237,7 +237,7 @@ if __name__ == '__main__':
         val_loss_original, val_entropy_original, val_acc_original = model_original.evaluate(x_test, y_test, verbose=1)
 
         predictions = model_original.predict(x_test, verbose=1)
-        report = classification_report(predictions, np.argmax(y_test, axis=1))
+        report = classification_report(np.argmax(predictions, axis=1), np.argmax(y_test, axis=1))
         print(report)
 
     print('Loss: {:.5f}'.format(val_loss_original))
@@ -431,7 +431,7 @@ if __name__ == '__main__':
             val_loss_inserted, val_entropy_inserted, val_acc_inserted = model_final.evaluate(x_test, y_test, verbose=1)      
 
             predictions = model_final.predict(x_test, verbose=1)
-            report = classification_report(predictions, y_test)
+            report = classification_report(np.argmax(predictions, axis=1), np.argmax(y_test, axis=1))
             print(report)
 
         print('Loss: {:.5f}'.format(val_loss_inserted))
