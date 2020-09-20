@@ -235,6 +235,11 @@ if __name__ == '__main__':
         val_loss_original, val_entropy_original, val_acc_original = model_original.evaluate(datagen_val, verbose=1, use_multiprocessing=True, workers=32, max_queue_size=64)
     elif dataset_name == 'CIFAR10':
         val_loss_original, val_entropy_original, val_acc_original = model_original.evaluate(x_test, y_test, verbose=1)
+
+        predictions = model_original.predict(x_test, verbose=1)
+        report = classification_report(predictions, y_test)
+        print(report)
+
     print('Loss: {:.5f}'.format(val_loss_original))
     print('Entropy: {:.5f}'.format(val_entropy_original))
     print('Accuracy: {:.4f}'.format(val_acc_original))
@@ -407,7 +412,11 @@ if __name__ == '__main__':
         val_loss_inserted, val_entropy_inserted, val_acc_inserted = model_final.evaluate(datagen_val, verbose=1)
     elif dataset_name == 'CIFAR10':
         val_loss_inserted, val_entropy_inserted, val_acc_inserted = model_final.evaluate(x_test, y_test, verbose=1)
- 
+        predictions = model_final.predict(x_test, verbose=1)
+        report = classification_report(predictions, y_test)
+        print(report)
+
+
     print('Loss: {:.5f}'.format(val_loss_inserted))
     print('Entropy: {:.5f}'.format(val_entropy_inserted))
     print('Accuracy: {:.4f}'.format(val_acc_inserted))
@@ -419,7 +428,12 @@ if __name__ == '__main__':
         if dataset_name == 'imagenet':
             val_loss_inserted, val_entropy_inserted, val_acc_inserted = model_final.evaluate(datagen_val, verbose=1)
         elif dataset_name == 'CIFAR10':
-            val_loss_inserted, val_entropy_inserted, val_acc_inserted = model_final.evaluate(x_test, y_test, verbose=1)        
+            val_loss_inserted, val_entropy_inserted, val_acc_inserted = model_final.evaluate(x_test, y_test, verbose=1)      
+
+            predictions = model_final.predict(x_test, verbose=1)
+            report = classification_report(predictions, y_test)
+            print(report)
+
         print('Loss: {:.5f}'.format(val_loss_inserted))
         print('Entropy: {:.5f}'.format(val_entropy_inserted))
         print('Accuracy: {:.4f}'.format(val_acc_inserted))
@@ -508,7 +522,7 @@ if __name__ == '__main__':
             if training_final_model['finetune_strategy'] == 'unfreeze_all':
                 callbacks.append(callback_learning_rate)
                 for i, layer in enumerate(model_final.layers):
-                    if i < loc2+1 and isinstance(layer, keras.layers.BatchNormalization):
+                    if i < loc1 and isinstance(layer, keras.layers.BatchNormalization):
                         layer.trainable = False
 
             if training_final_model['finetune_strategy'] == 'unfreeze_per_epoch_starting_shunt':
