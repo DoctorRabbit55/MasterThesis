@@ -413,7 +413,7 @@ if __name__ == '__main__':
     elif dataset_name == 'CIFAR10':
         val_loss_inserted, val_entropy_inserted, val_acc_inserted = model_final.evaluate(x_test, y_test, verbose=1)
         predictions = model_final.predict(x_test, verbose=1)
-        report = classification_report(predictions, np.argmax(y_test, axis=1))
+        report = classification_report(np.argmax(predictions, axis=1), np.argmax(y_test, axis=1))
         print(report)
 
 
