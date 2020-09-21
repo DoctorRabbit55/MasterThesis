@@ -293,7 +293,7 @@ if __name__ == '__main__':
     keras.models.save_model(model_shunt, Path(folder_name_logging, "shunt_model.h5"))
     logging.info('')
     logging.info('Shunt model saved to {}'.format(folder_name_logging))
-    
+
 
     batch_size_shunt = training_shunt_model.getint('batchsize')
     epochs_first_cycle_shunt = training_shunt_model.getint('epochs_first_cycle')
@@ -406,7 +406,7 @@ if __name__ == '__main__':
     model_final.compile(loss='categorical_crossentropy', optimizer=keras.optimizers.SGD(lr=learning_rate_first_cycle_final, momentum=0.9, decay=0.0, nesterov=False), metrics=[keras.metrics.categorical_crossentropy, 'accuracy'])
 
     model_final_dk = create_dark_knowledge_model(model_final, model_original, temperature=3)
-    model_final_dk.compile(loss={'Student': 'categorical_crossentropy', 'dark_knowledge': mean_squared_diff}, optimizer=keras.optimizers.SGD(lr=learning_rate_first_cycle_final, momentum=0.9, decay=0.0, nesterov=False), metrics={'Student': [keras.metrics.categorical_crossentropy, 'accuracy']})
+    model_final_dk.compile(loss={'Student': 'categorical_crossentropy', 'dark_knowledge': mean_squared_diff}, optimizer=keras.optimizers.SGD(lr=learning_rate_first_cycle_final, momentum=0.9, decay=0.0, nesterov=False), metrics={'Student': [keras.metrics.categorical_crossentropy, 'accuracy']}, callbacks=callbacks)
     history_final = model_final_dk.fit(datagen_train.flow(x_train, y_train, batch_size=batch_size_final), epochs=epochs_final, validation_data=(x_test, y_test), verbose=1)
 
     print('Test shunt inserted model')
