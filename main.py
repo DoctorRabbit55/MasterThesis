@@ -12,6 +12,7 @@ from CDL.models.MobileNet_v2 import create_mobilenet_v2
 from CDL.models.MobileNet_v3 import create_mobilenet_v3
 from CDL.shunt import Architectures
 from CDL.shunt.create_shunt_trainings_model import create_shunt_trainings_model
+from CDL.utils.create_distillation_trainings_model import create_dark_knowledge_model
 from CDL.utils.calculateFLOPS import calculateFLOPs_model, calculateFLOPs_blocks
 from CDL.utils.dataset_utils import *
 from CDL.utils.get_knowledge_quotients import get_knowledge_quotients, get_knowledge_quotient
@@ -236,9 +237,9 @@ if __name__ == '__main__':
     elif dataset_name == 'CIFAR10':
         val_loss_original, val_entropy_original, val_acc_original = model_original.evaluate(x_test, y_test, verbose=1)
 
-        predictions = model_original.predict(x_test, verbose=1)
-        report = classification_report(np.argmax(predictions, axis=1), np.argmax(y_test, axis=1))
-        print(report)
+        #predictions = model_original.predict(x_test, verbose=1)
+        #report = classification_report(np.argmax(predictions, axis=1), np.argmax(y_test, axis=1))
+        #print(report)
 
     print('Loss: {:.5f}'.format(val_loss_original))
     print('Entropy: {:.5f}'.format(val_entropy_original))
@@ -271,14 +272,14 @@ if __name__ == '__main__':
 
     loc1 = shunt_params['locations'][0]
     loc2 = shunt_params['locations'][1]
-
+    
     if dataset_name == 'imagenet':
         know_quot = get_knowledge_quotient(model=model_original, datagen=datagen_val, val_acc_model=val_acc_original, locations=[loc1, loc2])
     elif dataset_name == 'CIFAR10':
         know_quot = get_knowledge_quotient(model=model_original, datagen=(x_test, y_test), val_acc_model=val_acc_original, locations=[loc1, loc2])
     logging.info('')
     logging.info('know_quot of all blocks: {:.3f}'.format(know_quot))
-
+    
     if shunt_params['from_file']:
         model_shunt = keras.models.load_model(shunt_params['filepath'])
         print('Shunt model loaded successfully!')
@@ -293,9 +294,6 @@ if __name__ == '__main__':
     logging.info('')
     logging.info('Shunt model saved to {}'.format(folder_name_logging))
     
-    logging.info('')
-    logging.info('Block')
-
 
     batch_size_shunt = training_shunt_model.getint('batchsize')
     epochs_first_cycle_shunt = training_shunt_model.getint('epochs_first_cycle')
@@ -363,7 +361,7 @@ if __name__ == '__main__':
                 print('Loss: {:.5f}'.format(val_loss_shunt))
 
 
-    model_final = modify_model(model_original, layer_indexes_to_delete=range(loc1, loc2+1), shunt_to_insert=model_shunt) # +1 needed because of the way range works
+    model_final = modify_model(model_original, layer_indexes_to_delete=range(loc1, loc2+1), shunt_to_insert=model_shunt, layer_name_prefix='final_') # +1 needed because of the way range works
     
     keras.models.save_model(model_final, Path(folder_name_logging, "final_model.h5"))
     logging.info('')
@@ -406,6 +404,10 @@ if __name__ == '__main__':
     for layer in model_final.layers:    # reset trainable status of all layers
         layer.trainable = True
     model_final.compile(loss='categorical_crossentropy', optimizer=keras.optimizers.SGD(lr=learning_rate_first_cycle_final, momentum=0.9, decay=0.0, nesterov=False), metrics=[keras.metrics.categorical_crossentropy, 'accuracy'])
+
+    model_final_dk = create_dark_knowledge_model(model_final, model_original, temperature=3)
+    model_final_dk.compile(loss={'Student': 'categorical_crossentropy', 'dark_knowledge': mean_squared_diff}, optimizer=keras.optimizers.SGD(lr=learning_rate_first_cycle_final, momentum=0.9, decay=0.0, nesterov=False), metrics={'Student': [keras.metrics.categorical_crossentropy, 'accuracy']})
+    history_final = model_final_dk.fit(datagen_train.flow(x_train, y_train, batch_size=batch_size_final), epochs=epochs_final, validation_data=(x_test, y_test), verbose=1)
 
     print('Test shunt inserted model')
     if dataset_name == 'imagenet':
