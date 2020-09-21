@@ -2,7 +2,7 @@ import tensorflow as tf
 import tensorflow.keras as keras
 from keras.utils.generic_utils import get_custom_objects
 from tensorflow.keras.layers import deserialize as layer_from_config
-from tensorflow.keras.layers import Input, Add, Multiply, Subtract, Flatten, Lambda, Activation
+from tensorflow.keras.layers import Input, Add, Multiply, Subtract, Flatten, Lambda, Activation, Conv2D
 from tensorflow.keras.models import Model
 import tensorflow.keras.backend as K
 
@@ -39,25 +39,38 @@ def create_dark_knowledge_model(model_student, model_teacher, temperature=3):
     return model_dark_knowledge
 
 
-def add_attention_transfer(model_student, model_teacher, shunt_locations):
+def create_attention_transfer_model(model_student, model_teacher, shunt_locations, index_offset, max_number_transfers=3):
 
-    input_teacher = model_student.layers[shunt_locations[1]].output
-    output_original_model = model.layers[shunt_locations[1]].output
-    output_original_model = Flatten()(output_original_model)
-    #output_original_model = K.l2_normalize(output_original_model,axis=1)
+    # count how many COV2D layers there are
+    conv_index_list = []
+    for i, layer in enumerate(model_teacher.layers[shunt_locations[1]:]):
+        if isinstance(layer, Conv2D):
+            conv_index_list.append(shunt_locations[1]+i)
 
-    x = model_shunt(shunt_input)
+    number_conv = len(conv_index_list)
+    if max_number_transfers >= number_conv:
+        transfer_indices_teacher = conv_index_list
+    else: # too many conv found
+        indices = list(map(int, list(np.linspace(0, number_conv-1, max_number_transfers))))
+        print(number_conv, indices)
+        transfer_indices_teacher = list(np.asarray(conv_index_list)[indices])
 
-    x = Flatten()(x)
-    #x = K.l2_normalize(x,axis=1)
-    x = Subtract()([x, output_original_model])
-    #x = Multiply()([x, x])
-    #x = keras.backend.sum(x, axis=1)
-    #x = keras.backend.sqrt(x)
-    #x = Lambda(lambda x: x * 1/(model_shunt.output_shape[1]*model_shunt.output_shape[2]))(x)
+    outputs_teacher = []
+    outputs_student = []
+    for index in transfer_indices_teacher:
+        outputs_teacher.append(model_teacher.layers[index].output)
+        outputs_student.append(model_student.layers[index+index_offset].output)
 
-    model_training = keras.models.Model(inputs=model.input, outputs=[x], name='shunt_training')
-    for layer in model_training.layers: layer.trainable = False
-    model_training.get_layer(name=model_shunt.name).trainable = True
+    attention_losses = []
+    for i in range(len(outputs_student)):
+        loss = Subtract()([outputs_teacher[i], outputs_student[i]])
+        loss = Flatten()(loss)
+        loss = K.l2_normalize(loss,axis=1)
+        attention_losses.append(loss)
 
-    return model_training
+    input_net = Input(shape=model_student.input_shape[1:])
+    model_at = Model(input_net, [model_student(input_net)] + attention_losses, 'attention_transfer')
+
+    print(model_at.summary())
+
+    return model_at
