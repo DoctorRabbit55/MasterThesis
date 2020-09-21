@@ -12,7 +12,7 @@ from CDL.models.MobileNet_v2 import create_mobilenet_v2
 from CDL.models.MobileNet_v3 import create_mobilenet_v3
 from CDL.shunt import Architectures
 from CDL.shunt.create_shunt_trainings_model import create_shunt_trainings_model
-from CDL.utils.create_distillation_trainings_model import create_dark_knowledge_model
+from CDL.utils.create_distillation_trainings_model import create_dark_knowledge_model, create_attention_transfer_model
 from CDL.utils.calculateFLOPS import calculateFLOPs_model, calculateFLOPs_blocks
 from CDL.utils.dataset_utils import *
 from CDL.utils.get_knowledge_quotients import get_knowledge_quotients, get_knowledge_quotient
@@ -230,7 +230,7 @@ if __name__ == '__main__':
 
     # test original model
     
-    
+    '''
     print('Test original model')
     if dataset_name == 'imagenet':
         val_loss_original, val_entropy_original, val_acc_original = model_original.evaluate(datagen_val, verbose=1, use_multiprocessing=True, workers=32, max_queue_size=64)
@@ -244,7 +244,7 @@ if __name__ == '__main__':
     print('Loss: {:.5f}'.format(val_loss_original))
     print('Entropy: {:.5f}'.format(val_entropy_original))
     print('Accuracy: {:.4f}'.format(val_acc_original))
-    
+    '''
 
     if modes['calc_knowledge_quotients']:
         if dataset_name == 'imagenet':
@@ -273,13 +273,15 @@ if __name__ == '__main__':
     loc1 = shunt_params['locations'][0]
     loc2 = shunt_params['locations'][1]
     
+    '''
     if dataset_name == 'imagenet':
         know_quot = get_knowledge_quotient(model=model_original, datagen=datagen_val, val_acc_model=val_acc_original, locations=[loc1, loc2])
     elif dataset_name == 'CIFAR10':
         know_quot = get_knowledge_quotient(model=model_original, datagen=(x_test, y_test), val_acc_model=val_acc_original, locations=[loc1, loc2])
     logging.info('')
     logging.info('know_quot of all blocks: {:.3f}'.format(know_quot))
-    
+    '''
+
     if shunt_params['from_file']:
         model_shunt = keras.models.load_model(shunt_params['filepath'])
         print('Shunt model loaded successfully!')
@@ -405,8 +407,14 @@ if __name__ == '__main__':
         layer.trainable = True
     model_final.compile(loss='categorical_crossentropy', optimizer=keras.optimizers.SGD(lr=learning_rate_first_cycle_final, momentum=0.9, decay=0.0, nesterov=False), metrics=[keras.metrics.categorical_crossentropy, 'accuracy'])
 
+    create_attention_transfer_model(model_final, model_original, [loc1, loc2], index_offset=len(model_shunt.layers)-(loc2-loc1))
+
+    callback_checkpoint = keras.callbacks.ModelCheckpoint(str(Path(folder_name_logging, "final_model_weights.h5")), save_best_only=True, monitor='val_Student_accuracy', mode='max', save_weights_only=True)
+    callback_learning_rate = LearningRateSchedulerCallback(epochs_first_cycle=epochs_first_cycle_final, learning_rate_second_cycle=learning_rate_second_cycle_final)
+    callbacks = [callback_checkpoint, callback_learning_rate]
+
     model_final_dk = create_dark_knowledge_model(model_final, model_original, temperature=3)
-    model_final_dk.compile(loss={'Student': 'categorical_crossentropy', 'dark_knowledge': mean_squared_diff}, optimizer=keras.optimizers.SGD(lr=learning_rate_first_cycle_final, momentum=0.9, decay=0.0, nesterov=False), metrics={'Student': [keras.metrics.categorical_crossentropy, 'accuracy']})
+    model_final_dk.compile(loss={'Student': 'categorical_crossentropy', 'dark_knowledge': mean_squared_diff}, optimizer=keras.optimizers.SGD(lr=learning_rate_first_cycle_final, momentum=0.9, decay=0.0, nesterov=False), metrics={'Student': 'accuracy'})
     history_final = model_final_dk.fit(datagen_train.flow(x_train, y_train, batch_size=batch_size_final), epochs=epochs_final, validation_data=(x_test, y_test), verbose=1, callbacks=callbacks)
 
     print('Test shunt inserted model')
