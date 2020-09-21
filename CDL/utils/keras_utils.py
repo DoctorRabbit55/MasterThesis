@@ -15,7 +15,7 @@ from tensorflow.keras.applications import MobileNetV2
 #from keras_applications.mobilenet_v3 import MobileNetV3Small
 
 def mean_squared_diff(y_true, y_pred):
-    return tf.reduce_mean(K.square(y_pred))
+    return K.mean(K.square(y_pred))
 
 def mean_iou(y_true, y_pred):
     nb_classes = K.int_shape(y_pred)[-1]
@@ -86,7 +86,7 @@ def identify_residual_layer_indexes(model):
 
     return add_incoming_index_dic, mult_incoming_index_dic
 
-def modify_model(model, layer_indexes_to_delete=[], layer_indexes_to_output=[], shunt_to_insert=None, is_deeplab=False):
+def modify_model(model, layer_indexes_to_delete=[], layer_indexes_to_output=[], shunt_to_insert=None, is_deeplab=False, layer_name_prefix=""):
     from CDL.models.deeplabv3p import deeplab_head
 
     get_custom_objects().update({'hard_swish': hard_swish})
@@ -125,6 +125,7 @@ def modify_model(model, layer_indexes_to_delete=[], layer_indexes_to_output=[], 
 
         layer = model.layers[i]
         config = layer.get_config()
+        config['name'] = layer_name_prefix + config['name']
 
         # there is a bug in layer_from_config, where custom Activation are not passed correctly
 
@@ -210,7 +211,7 @@ def modify_model(model, layer_indexes_to_delete=[], layer_indexes_to_output=[], 
                     model_reduced.layers[j].set_weights(weights)
                 continue
 
-        weights = model.get_layer(name=layer.name).get_weights()
+        weights = model.get_layer(name=layer.name[len(layer_name_prefix):]).get_weights()
         if len(weights) > 0:
             #print(layer.name)
             model_reduced.layers[j].set_weights(weights)
