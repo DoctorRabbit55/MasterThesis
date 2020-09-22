@@ -65,6 +65,7 @@ def create_attention_transfer_model(model_student, model_teacher, shunt_location
 
     model_student_with_outputs = Model(model_student.input, [model_student.output] + outputs_student, name='Student')
     model_teacher_with_outputs = Model(model_teacher.input, outputs_teacher, name='Teacher')
+    model_teacher_with_outputs.trainable = False
 
     input_net = Input(shape=model_student.input_shape[1:])
 
@@ -74,7 +75,7 @@ def create_attention_transfer_model(model_student, model_teacher, shunt_location
     attention_losses = []
     for i in range(len(outputs_teacher)):
         loss = Subtract()([outputs_teacher[i], outputs_student[i+1]])
-        loss = Flatten()(loss)
+        loss = Flatten(name='a_t_{}'.format(i))(loss)
         #loss = K.l2_normalize(loss,axis=1)
         attention_losses.append(loss)
 
