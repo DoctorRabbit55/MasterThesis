@@ -18,7 +18,7 @@ from CDL.utils.dataset_utils import *
 from CDL.utils.get_knowledge_quotients import get_knowledge_quotients, get_knowledge_quotient
 from CDL.utils.generic_utils import *
 from CDL.utils.keras_utils import extract_feature_maps, modify_model, identify_residual_layer_indexes, mean_squared_diff
-from CDL.utils.custom_callbacks import UnfreezeLayersCallback, LearningRateSchedulerCallback
+from CDL.utils.custom_callbacks import UnfreezeLayersCallback, LearningRateSchedulerCallback, SaveNestedModelCallabck
 from CDL.utils.custom_generators import Imagenet_generator, Imagenet_train_shunt_generator
 
 import tensorflow as tf
@@ -544,6 +544,8 @@ if __name__ == '__main__':
                     loss_distillation[output_name] = mean_squared_diff
 
             model_final.compile(loss=loss_distillation, optimizer=keras.optimizers.SGD(lr=learning_rate_first_cycle_final, momentum=0.9, decay=0.0, nesterov=False), metrics={'Student': 'accuracy'})
+            callbacks = [SaveNestedModelCallabck('val_Student_accuracy', str(Path(folder_name_logging, "final_model_weights.h5")), 'Student')]
+            callbacks.append(callback_learning_rate)
         else:
             model_final.compile(loss='categorical_crossentropy', optimizer=keras.optimizers.SGD(lr=learning_rate_first_cycle_final, momentum=0.9, decay=0.0, nesterov=False), metrics=[keras.metrics.categorical_crossentropy, 'accuracy'])
 
@@ -552,7 +554,7 @@ if __name__ == '__main__':
             if dataset_name == 'imagenet':
                 history_final = model_final.fit(datagen_train.flow_from_directory(dataset_train_image_path, shuffle=True, target_size=(224,224), batch_size=batch_size_final), epochs=epochs_final, validation_data=(x_test, y_test), verbose=1, callbacks=callbacks, use_multiprocessing=True, workers=32, max_queue_size=128)
             elif dataset_name == 'CIFAR10':
-                history_final = model_final.fit(datagen_train.flow(x_train, y_train, batch_size=batch_size_final), epochs=epochs_final, validation_data=(x_test, y_test), verbose=1, callbacks=callbacks)
+                history_final = model_final.fit(datagen_train.flow(x_train, y_train, batch_size=batch_size_final), epochs=epochs_final, steps_per_epoch=200, validation_data=(x_test, y_test), verbose=1, callbacks=callbacks)
             save_history_plot(history_final, "final", folder_name_logging, ['categorical_crossentropy', 'loss', 'accuracy'])
 
             model_final.load_weights(str(Path(folder_name_logging, "final_model_weights.h5")))
