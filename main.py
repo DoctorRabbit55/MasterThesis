@@ -12,7 +12,7 @@ from CDL.models.MobileNet_v2 import create_mobilenet_v2
 from CDL.models.MobileNet_v3 import create_mobilenet_v3
 from CDL.shunt import Architectures
 from CDL.shunt.create_shunt_trainings_model import create_shunt_trainings_model
-from CDL.utils.create_distillation_trainings_model import create_dark_knowledge_model, create_attention_transfer_model
+from CDL.utils.create_distillation_trainings_model import create_dark_knowledge_model, create_attention_transfer_model, create_knowledge_distillation_model
 from CDL.utils.calculateFLOPS import calculateFLOPs_model, calculateFLOPs_blocks
 from CDL.utils.dataset_utils import *
 from CDL.utils.get_knowledge_quotients import get_knowledge_quotients, get_knowledge_quotient
@@ -407,24 +407,7 @@ if __name__ == '__main__':
         layer.trainable = True
     model_final.compile(loss='categorical_crossentropy', optimizer=keras.optimizers.SGD(lr=learning_rate_first_cycle_final, momentum=0.9, decay=0.0, nesterov=False), metrics=[keras.metrics.categorical_crossentropy, 'accuracy'])
 
-    model_final_at = create_attention_transfer_model(model_final, model_original, [loc1, loc2], max_number_transfers=7, index_offset=len(model_shunt.layers)-(loc2-loc1))
-    number_transfers = len(model_final_at.output)-1
-    # build loss dict
-    loss_at = {'Student': 'categorical_crossentropy'}
-    for i in range(number_transfers):
-        loss_at['a_t_{}'.format(i)] = mean_squared_diff
-
-    model_final_at.compile(loss=loss_at, optimizer=keras.optimizers.SGD(lr=learning_rate_first_cycle_final, momentum=0.9, decay=0.0, nesterov=False), metrics={'Student': 'accuracy'})
-    history_final = model_final_at.fit(datagen_train.flow(x_train, y_train, batch_size=batch_size_final), epochs=epochs_final, validation_data=(x_test, y_test), verbose=1, callbacks=callbacks)
-
-    callback_checkpoint = keras.callbacks.ModelCheckpoint(str(Path(folder_name_logging, "final_model_weights.h5")), save_best_only=True, monitor='val_Student_accuracy', mode='max', save_weights_only=True)
-    callback_learning_rate = LearningRateSchedulerCallback(epochs_first_cycle=epochs_first_cycle_final, learning_rate_second_cycle=learning_rate_second_cycle_final)
-    callbacks = [callback_checkpoint, callback_learning_rate]
-
-    model_final_dk = create_dark_knowledge_model(model_final, model_original, temperature=3)
-    model_final_dk.compile(loss={'Student': 'categorical_crossentropy', 'dark_knowledge': mean_squared_diff}, optimizer=keras.optimizers.SGD(lr=learning_rate_first_cycle_final, momentum=0.9, decay=0.0, nesterov=False), metrics={'Student': 'accuracy'})
-    history_final = model_final_dk.fit(datagen_train.flow(x_train, y_train, batch_size=batch_size_final), epochs=epochs_final, validation_data=(x_test, y_test), verbose=1, callbacks=callbacks)
-
+    '''
     print('Test shunt inserted model')
     if dataset_name == 'imagenet':
         val_loss_inserted, val_entropy_inserted, val_acc_inserted = model_final.evaluate(datagen_val, verbose=1)
@@ -434,10 +417,10 @@ if __name__ == '__main__':
         report = classification_report(np.argmax(predictions, axis=1), np.argmax(y_test, axis=1))
         print(report)
 
-
     print('Loss: {:.5f}'.format(val_loss_inserted))
     print('Entropy: {:.5f}'.format(val_entropy_inserted))
     print('Accuracy: {:.4f}'.format(val_acc_inserted))
+    '''
 
     if final_model_params['pretrained']:
         model_final.load_weights(final_model_params['weightspath'])
@@ -511,67 +494,79 @@ if __name__ == '__main__':
             logging.info('{}: loss: {:.5f}, acc: {:.5f}, time: {:.1f} min'.format(strategy, val_loss_finetuned, val_acc_finetuned, (train_stop-train_start)/60))
 
     else:
-        
-        
-        if training_final_model['finetune_strategy'] == 'feature_maps':
-            pass
-            
+
+        if training_final_model['finetune_strategy'] == 'unfreeze_shunt':
+            callbacks.append(callback_learning_rate)
+            for i, layer in enumerate(model_final.layers):
+                if i < loc1 - 1 or i > loc1 + len(model_shunt.layers):
+                    layer.trainable = False
+
+        if training_final_model['finetune_strategy'] == 'unfreeze_after_shunt':
+            callbacks.append(callback_learning_rate)
+            for i, layer in enumerate(model_final.layers):
+                if i < loc1 + len(model_shunt.layers) - 1:
+                    model_final.layers[i].trainable = False
+
+        if training_final_model['finetune_strategy'] == 'unfreeze_per_epoch_starting_top':
+            callback_unfreeze = UnfreezeLayersCallback(epochs=epochs_final, epochs_per_unfreeze=2, learning_rate=learning_rate_first_cycle_final, unfreeze_to_index=loc1+len(model_shunt.layers), start_at=len(model_final.layers), direction=-1)
+            callbacks.append(callback_unfreeze)
+            for i, layer in enumerate(model_final.layers):
+                layer.trainable = False
+
+        if training_final_model['finetune_strategy'] == 'unfreeze_all':
+            callbacks.append(callback_learning_rate)
+            for i, layer in enumerate(model_final.layers):
+                if i < loc1 and isinstance(layer, keras.layers.BatchNormalization):
+                    layer.trainable = False
+
+        if training_final_model['finetune_strategy'] == 'unfreeze_per_epoch_starting_shunt':
+            callback_unfreeze = UnfreezeLayersCallback(epochs=epochs_final, epochs_per_unfreeze=2, learning_rate=learning_rate_first_cycle_final, unfreeze_to_index=0, start_at=loc1+len(model_shunt.layers)-2, direction=1)
+            # TODO: test this
+            callbacks.append(callback_unfreeze)
+            for i, layer in enumerate(model_final.layers):
+                layer.trainable = False
+
+        add_dark_knowledge = training_final_model.getboolean('add_dark_knowledge')
+        temperature = training_final_model.getint('temperature')
+        add_attention_transfer = training_final_model.getboolean('add_attention_transfer')
+        max_number_transfers = None
+        if add_attention_transfer:
+            if not training_final_model['max_number_transfers'] == 'auto':
+                max_number_transfers = training_final_model.getint('max_number_transfers')
+
+        if add_dark_knowledge or add_attention_transfer:
+            model_final = create_knowledge_distillation_model(model_final, model_original, add_dark_knowledge=add_dark_knowledge, temperature=temperature, add_attention_transfer=add_attention_transfer, shunt_locations=[loc1,loc2], index_offset=len(model_shunt.layers)-(loc2-loc1)-2, max_number_transfers=max_number_transfers)
+            # build loss dict
+            loss_distillation = {'Student': 'categorical_crossentropy'}
+            for output in model_final.output:
+                output_name = output.op.name[:-len('/Identity')] # cut off unimportant part
+                if 'a_t_' in output_name or 'dark_knowledge' in output_name:
+                    loss_distillation[output_name] = mean_squared_diff
+
+            model_final.compile(loss=loss_distillation, optimizer=keras.optimizers.SGD(lr=learning_rate_first_cycle_final, momentum=0.9, decay=0.0, nesterov=False), metrics={'Student': 'accuracy'})
         else:
-
-            if training_final_model['finetune_strategy'] == 'unfreeze_shunt':
-                callbacks.append(callback_learning_rate)
-                for i, layer in enumerate(model_final.layers):
-                    if i < loc1 - 1 or i > loc1 + len(model_shunt.layers):
-                        layer.trainable = False
-
-            if training_final_model['finetune_strategy'] == 'unfreeze_after_shunt':
-                callbacks.append(callback_learning_rate)
-                for i, layer in enumerate(model_final.layers):
-                    if i < loc1 + len(model_shunt.layers) - 1:
-                        model_final.layers[i].trainable = False
-
-
-            if training_final_model['finetune_strategy'] == 'unfreeze_per_epoch_starting_top':
-                callback_unfreeze = UnfreezeLayersCallback(epochs=epochs_final, epochs_per_unfreeze=2, learning_rate=learning_rate_first_cycle_final, unfreeze_to_index=loc1+len(model_shunt.layers), start_at=len(model_final.layers), direction=-1)
-                callbacks.append(callback_unfreeze)
-                for i, layer in enumerate(model_final.layers):
-                    layer.trainable = False
-
-            if training_final_model['finetune_strategy'] == 'unfreeze_all':
-                callbacks.append(callback_learning_rate)
-                for i, layer in enumerate(model_final.layers):
-                    if i < loc1 and isinstance(layer, keras.layers.BatchNormalization):
-                        layer.trainable = False
-
-            if training_final_model['finetune_strategy'] == 'unfreeze_per_epoch_starting_shunt':
-                callback_unfreeze = UnfreezeLayersCallback(epochs=epochs_final, epochs_per_unfreeze=2, learning_rate=learning_rate_first_cycle_final, unfreeze_to_index=0, start_at=loc1+len(model_shunt.layers)-2, direction=1)
-                # TODO: test this
-                callbacks.append(callback_unfreeze)
-                for i, layer in enumerate(model_final.layers):
-                    layer.trainable = False
-
             model_final.compile(loss='categorical_crossentropy', optimizer=keras.optimizers.SGD(lr=learning_rate_first_cycle_final, momentum=0.9, decay=0.0, nesterov=False), metrics=[keras.metrics.categorical_crossentropy, 'accuracy'])
 
-            if  modes['train_final_model']:
-                print('Train final model:')
-                if dataset_name == 'imagenet':
-                    history_final = model_final.fit(datagen_train.flow_from_directory(dataset_train_image_path, shuffle=True, target_size=(224,224), batch_size=batch_size_final), epochs=epochs_final, validation_data=(x_test, y_test), verbose=1, callbacks=callbacks, use_multiprocessing=True, workers=32, max_queue_size=128)
-                elif dataset_name == 'CIFAR10':
-                    history_final = model_final.fit(datagen_train.flow(x_train, y_train, batch_size=batch_size_final), epochs=epochs_final, validation_data=(x_test, y_test), verbose=1, callbacks=callbacks)
-                save_history_plot(history_final, "final", folder_name_logging, ['categorical_crossentropy', 'loss', 'accuracy'])
+        if  modes['train_final_model']:
+            print('Train final model:')
+            if dataset_name == 'imagenet':
+                history_final = model_final.fit(datagen_train.flow_from_directory(dataset_train_image_path, shuffle=True, target_size=(224,224), batch_size=batch_size_final), epochs=epochs_final, validation_data=(x_test, y_test), verbose=1, callbacks=callbacks, use_multiprocessing=True, workers=32, max_queue_size=128)
+            elif dataset_name == 'CIFAR10':
+                history_final = model_final.fit(datagen_train.flow(x_train, y_train, batch_size=batch_size_final), epochs=epochs_final, validation_data=(x_test, y_test), verbose=1, callbacks=callbacks)
+            save_history_plot(history_final, "final", folder_name_logging, ['categorical_crossentropy', 'loss', 'accuracy'])
 
-                model_final.load_weights(str(Path(folder_name_logging, "final_model_weights.h5")))
+            model_final.load_weights(str(Path(folder_name_logging, "final_model_weights.h5")))
 
-                print('Test_final_model')
-                if dataset_name == 'imagenet':
-                    val_loss_finetuned, val_entropy_finetuned, val_acc_finetuned = model_final.evaluate(datagen_val, verbose=1)
-                elif dataset_name == 'CIFAR10':
-                    val_loss_finetuned, val_entropy_finetuned, val_acc_finetuned = model_final.evaluate(x_test, y_test, verbose=1)
-                print('Loss: {}'.format(val_loss_finetuned))
-                print('Entropy: {:.5f}'.format(val_entropy_finetuned))
-                print('Accuracy: {}'.format(val_acc_finetuned))
+            print('Test_final_model')
+            if dataset_name == 'imagenet':
+                val_loss_finetuned, val_entropy_finetuned, val_acc_finetuned = model_final.evaluate(datagen_val, verbose=1)
+            elif dataset_name == 'CIFAR10':
+                val_loss_finetuned, val_entropy_finetuned, val_acc_finetuned = model_final.evaluate(x_test, y_test, verbose=1)
+            print('Loss: {}'.format(val_loss_finetuned))
+            print('Entropy: {:.5f}'.format(val_entropy_finetuned))
+            print('Accuracy: {}'.format(val_acc_finetuned))
 
-                model_final.load_weights(str(Path(folder_name_logging, "final_model_weights.h5")))
+            model_final.load_weights(str(Path(folder_name_logging, "final_model_weights.h5")))
         
         logging.info('')
         logging.info('Final model weights saved to {}'.format(folder_name_logging))

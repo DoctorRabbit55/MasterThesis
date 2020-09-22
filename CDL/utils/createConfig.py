@@ -61,6 +61,10 @@ if __name__ == '__main__':
 
         config['TRAINING_FINAL_MODEL'] = {'finetune_strategy': 'unfreeze_all',
                                         '# strategies: unfreeze_all, unfreeze_shunt, unfreeze_per_epoch_starting_top, unfreeze_per_epoch_starting_shunt': None,
+                                        'add_dark_knowledge': False,
+                                        'temperature': 3,
+                                        'add_attention_transfer': False,
+                                        'max_number_transfers': 'auto',
                                         'batchsize': 8,
                                         'epochs_first_cycle': 50,
                                         'learning_rate_first_cycle': 1e-3,
