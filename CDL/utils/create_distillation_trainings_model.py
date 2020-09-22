@@ -31,9 +31,11 @@ def create_dark_knowledge_model(model_student, model_teacher, temperature=3):
     model_student = Model(model_student.input, [prediction_without_temperature, prediction_with_temperature], name='Student')
 
     input_net = Input(shape=model_student.input_shape[1:])
-    dark_knowledge_loss = Subtract(name='dark_knowledge_without_temperature')([model_teacher(input_net), model_student(input_net)[1]])
+    outputs_student = model_student(input_net)
+    outputs_teacher = model_teacher(input_net)
+    dark_knowledge_loss = Subtract(name='dark_knowledge_without_temperature')([outputs_teacher, outputs_student[1]])
     dark_knowledge_loss = Lambda(lambda x: x * temperature * temperature, name='dark_knowledge')(dark_knowledge_loss)
-    model_dark_knowledge = Model(input_net, [model_student(input_net)[0], dark_knowledge_loss], name='Final_model_dark_knowledge')
+    model_dark_knowledge = Model(input_net, [outputs_student[0], dark_knowledge_loss], name='Final_model_dark_knowledge')
 
     print(model_dark_knowledge.summary())
     return model_dark_knowledge
@@ -61,15 +63,22 @@ def create_attention_transfer_model(model_student, model_teacher, shunt_location
         outputs_teacher.append(model_teacher.layers[index].output)
         outputs_student.append(model_student.layers[index+index_offset].output)
 
-    attention_losses = []
-    for i in range(len(outputs_student)):
-        loss = Subtract()([outputs_teacher[i], outputs_student[i]])
-        loss = Flatten()(loss)
-        loss = K.l2_normalize(loss,axis=1)
-        attention_losses.append(loss)
+    model_student_with_outputs = Model(model_student.input, [model_student.output] + outputs_student, name='Student')
+    model_teacher_with_outputs = Model(model_teacher.input, outputs_teacher, name='Teacher')
 
     input_net = Input(shape=model_student.input_shape[1:])
-    model_at = Model(input_net, [model_student(input_net)] + attention_losses, 'attention_transfer')
+
+    outputs_teacher = model_teacher_with_outputs(input_net)
+    outputs_student = model_student_with_outputs(input_net)
+
+    attention_losses = []
+    for i in range(len(outputs_teacher)):
+        loss = Subtract()([outputs_teacher[i], outputs_student[i+1]])
+        loss = Flatten()(loss)
+        #loss = K.l2_normalize(loss,axis=1)
+        attention_losses.append(loss)
+
+    model_at = Model(input_net, [outputs_student[0]] + attention_losses, name='attention_transfer')
 
     print(model_at.summary())
 
