@@ -54,12 +54,12 @@ def create_attention_transfer_model(model_student, model_teacher, shunt_location
         transfer_indices_teacher = conv_index_list
     else: # too many conv found
         indices = list(map(int, list(np.linspace(0, number_conv-1, max_number_transfers))))
-        print(number_conv, indices)
         transfer_indices_teacher = list(np.asarray(conv_index_list)[indices])
 
     outputs_teacher = []
     outputs_student = []
     for index in transfer_indices_teacher:
+        print('Chose {} layer for attention transfer!'.format(model_teacher.layers[index].name))
         outputs_teacher.append(model_teacher.layers[index].output)
         outputs_student.append(model_student.layers[index+index_offset].output)
 
