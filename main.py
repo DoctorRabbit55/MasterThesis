@@ -554,7 +554,7 @@ if __name__ == '__main__':
             if dataset_name == 'imagenet':
                 history_final = model_final.fit(datagen_train.flow_from_directory(dataset_train_image_path, shuffle=True, target_size=(224,224), batch_size=batch_size_final), epochs=epochs_final, validation_data=(x_test, y_test), verbose=1, callbacks=callbacks, use_multiprocessing=True, workers=32, max_queue_size=128)
             elif dataset_name == 'CIFAR10':
-                history_final = model_final.fit(datagen_train.flow(x_train, y_train, batch_size=batch_size_final), epochs=epochs_final, steps_per_epoch=200, validation_data=(x_test, y_test), verbose=1, callbacks=callbacks)
+                history_final = model_final.fit(datagen_train.flow(x_train, y_train, batch_size=batch_size_final), epochs=epochs_final, validation_data=(x_test, y_test), verbose=1, callbacks=callbacks)
             save_history_plot(history_final, "final", folder_name_logging, ['categorical_crossentropy', 'loss', 'accuracy'])
 
             model_final.load_weights(str(Path(folder_name_logging, "final_model_weights.h5")))
