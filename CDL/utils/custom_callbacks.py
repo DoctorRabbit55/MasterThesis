@@ -57,7 +57,7 @@ class SaveNestedModelCallabck(Callback):
         self.weights_path = weights_path
         self.nested_model_name = nested_model_name
 
-    def on_test_end(self, logs=None):
+    def on_epoch_end(self, epoch, logs=None):
         new_value = logs[self.observed_value]
         if new_value > self.best_value:
             self.best_value = new_value
