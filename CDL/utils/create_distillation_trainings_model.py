@@ -45,7 +45,7 @@ def create_attention_transfer_model(model_student, model_teacher, shunt_location
 
     # count how many COV2D layers there are
     conv_index_list = []
-    for i, layer in enumerate(model_teacher.layers[shunt_locations[1]:]):
+    for i, layer in enumerate(model_teacher.layers[shunt_locations[1]:-3]):
         if isinstance(layer, Conv2D):
             conv_index_list.append(shunt_locations[1]+i)
 
