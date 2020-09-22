@@ -230,7 +230,7 @@ if __name__ == '__main__':
 
     # test original model
     
-    '''
+    
     print('Test original model')
     if dataset_name == 'imagenet':
         val_loss_original, val_entropy_original, val_acc_original = model_original.evaluate(datagen_val, verbose=1, use_multiprocessing=True, workers=32, max_queue_size=64)
@@ -244,7 +244,7 @@ if __name__ == '__main__':
     print('Loss: {:.5f}'.format(val_loss_original))
     print('Entropy: {:.5f}'.format(val_entropy_original))
     print('Accuracy: {:.4f}'.format(val_acc_original))
-    '''
+    
 
     if modes['calc_knowledge_quotients']:
         if dataset_name == 'imagenet':
@@ -273,14 +273,14 @@ if __name__ == '__main__':
     loc1 = shunt_params['locations'][0]
     loc2 = shunt_params['locations'][1]
     
-    '''
+    
     if dataset_name == 'imagenet':
         know_quot = get_knowledge_quotient(model=model_original, datagen=datagen_val, val_acc_model=val_acc_original, locations=[loc1, loc2])
     elif dataset_name == 'CIFAR10':
         know_quot = get_knowledge_quotient(model=model_original, datagen=(x_test, y_test), val_acc_model=val_acc_original, locations=[loc1, loc2])
     logging.info('')
     logging.info('know_quot of all blocks: {:.3f}'.format(know_quot))
-    '''
+    
 
     if shunt_params['from_file']:
         model_shunt = keras.models.load_model(shunt_params['filepath'])
@@ -407,7 +407,7 @@ if __name__ == '__main__':
         layer.trainable = True
     model_final.compile(loss='categorical_crossentropy', optimizer=keras.optimizers.SGD(lr=learning_rate_first_cycle_final, momentum=0.9, decay=0.0, nesterov=False), metrics=[keras.metrics.categorical_crossentropy, 'accuracy'])
 
-    '''
+    
     print('Test shunt inserted model')
     if dataset_name == 'imagenet':
         val_loss_inserted, val_entropy_inserted, val_acc_inserted = model_final.evaluate(datagen_val, verbose=1)
@@ -420,7 +420,7 @@ if __name__ == '__main__':
     print('Loss: {:.5f}'.format(val_loss_inserted))
     print('Entropy: {:.5f}'.format(val_entropy_inserted))
     print('Accuracy: {:.4f}'.format(val_acc_inserted))
-    '''
+    
 
     if final_model_params['pretrained']:
         model_final.load_weights(final_model_params['weightspath'])
@@ -515,9 +515,9 @@ if __name__ == '__main__':
 
         if training_final_model['finetune_strategy'] == 'unfreeze_all':
             callbacks.append(callback_learning_rate)
-            for i, layer in enumerate(model_final.layers):
-                if i < loc1 and isinstance(layer, keras.layers.BatchNormalization):
-                    layer.trainable = False
+            #for i, layer in enumerate(model_final.layers):
+            #    if i < loc1 and isinstance(layer, keras.layers.BatchNormalization):
+            #        layer.trainable = False
 
         if training_final_model['finetune_strategy'] == 'unfreeze_per_epoch_starting_shunt':
             callback_unfreeze = UnfreezeLayersCallback(epochs=epochs_final, epochs_per_unfreeze=2, learning_rate=learning_rate_first_cycle_final, unfreeze_to_index=0, start_at=loc1+len(model_shunt.layers)-2, direction=1)
