@@ -407,7 +407,15 @@ if __name__ == '__main__':
         layer.trainable = True
     model_final.compile(loss='categorical_crossentropy', optimizer=keras.optimizers.SGD(lr=learning_rate_first_cycle_final, momentum=0.9, decay=0.0, nesterov=False), metrics=[keras.metrics.categorical_crossentropy, 'accuracy'])
 
-    create_attention_transfer_model(model_final, model_original, [loc1, loc2], index_offset=len(model_shunt.layers)-(loc2-loc1))
+    model_final_at = create_attention_transfer_model(model_final, model_original, [loc1, loc2], max_number_transfers=7, index_offset=len(model_shunt.layers)-(loc2-loc1))
+    number_transfers = len(model_final_at.output)-1
+    # build loss dict
+    loss_at = {'Student': 'categorical_crossentropy'}
+    for i in range(number_transfers):
+        loss_at['a_t_{}'.format(i)] = mean_squared_diff
+
+    model_final_at.compile(loss=loss_at, optimizer=keras.optimizers.SGD(lr=learning_rate_first_cycle_final, momentum=0.9, decay=0.0, nesterov=False), metrics={'Student': 'accuracy'})
+    history_final = model_final_at.fit(datagen_train.flow(x_train, y_train, batch_size=batch_size_final), epochs=epochs_final, validation_data=(x_test, y_test), verbose=1, callbacks=callbacks)
 
     callback_checkpoint = keras.callbacks.ModelCheckpoint(str(Path(folder_name_logging, "final_model_weights.h5")), save_best_only=True, monitor='val_Student_accuracy', mode='max', save_weights_only=True)
     callback_learning_rate = LearningRateSchedulerCallback(epochs_first_cycle=epochs_first_cycle_final, learning_rate_second_cycle=learning_rate_second_cycle_final)
