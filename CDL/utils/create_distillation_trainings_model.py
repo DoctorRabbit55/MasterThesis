@@ -101,7 +101,7 @@ def create_knowledge_distillation_model(model_student, model_teacher, add_dark_k
         number_conv = len(conv_index_list)
 
         if not max_number_transfers: # auto mode
-            max_number_transfers = int(np.ceil(number_conv / 3))
+            max_number_transfers = int(np.max(2, np.ceil(number_conv / 3)))
 
         if max_number_transfers >= number_conv:
             transfer_indices_teacher = conv_index_list
