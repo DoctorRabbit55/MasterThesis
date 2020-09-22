@@ -62,4 +62,3 @@ class SaveNestedModelCallabck(Callback):
         if new_value > self.best_value:
             self.best_value = new_value
             self.model.get_layer(name=self.nested_model_name).save_weights(self.weights_path)
-            print(' Weights saved!')
