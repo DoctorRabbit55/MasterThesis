@@ -536,40 +536,48 @@ if __name__ == '__main__':
                 max_number_transfers = training_final_model.getint('max_number_transfers')
 
         if add_dark_knowledge or add_attention_transfer:
-            model_final = create_knowledge_distillation_model(model_final, model_original, add_dark_knowledge=add_dark_knowledge, temperature=temperature, add_attention_transfer=add_attention_transfer, shunt_locations=[loc1,loc2], index_offset=len(model_shunt.layers)-(loc2-loc1)-2, max_number_transfers=max_number_transfers)
+            model_final_dist = create_knowledge_distillation_model(model_final, model_original, add_dark_knowledge=add_dark_knowledge, temperature=temperature, add_attention_transfer=add_attention_transfer, shunt_locations=[loc1,loc2], index_offset=len(model_shunt.layers)-(loc2-loc1)-2, max_number_transfers=max_number_transfers)
             # build loss dict
             loss_distillation = {'Student': 'categorical_crossentropy'}
-            for output in model_final.output:
+            for output in model_final_dist.output:
                 output_name = output.name.split('/')[0] # cut off unimportant part
                 if 'a_t_' in output_name or 'dark_knowledge' in output_name:
                     loss_distillation[output_name] = mean_squared_diff
 
-            model_final.compile(loss=loss_distillation, optimizer=keras.optimizers.SGD(lr=learning_rate_first_cycle_final, momentum=0.9, decay=0.0, nesterov=False), metrics={'Student': 'accuracy'})
+            model_final_dist.compile(loss=loss_distillation, optimizer=keras.optimizers.SGD(lr=learning_rate_first_cycle_final, momentum=0.9, decay=0.0, nesterov=False), metrics={'Student': 'accuracy'})
             callbacks = [SaveNestedModelCallabck('val_Student_accuracy', str(Path(folder_name_logging, "final_model_weights.h5")), 'Student')]
             callbacks.append(callback_learning_rate)
+
+            if  modes['train_final_model']:
+                print('Train final model:')
+                if dataset_name == 'imagenet':
+                    history_final = model_final_dist.fit(datagen_train.flow_from_directory(dataset_train_image_path, shuffle=True, target_size=(224,224), interpolation='bicubic', batch_size=batch_size_final), epochs=epochs_final, validation_data=(x_test, y_test), verbose=1, callbacks=callbacks, use_multiprocessing=True, workers=32, max_queue_size=128)
+                elif dataset_name == 'CIFAR10':
+                    history_final = model_final_dist.fit(datagen_train.flow(x_train, y_train, batch_size=batch_size_final), epochs=epochs_final, validation_data=(x_test, y_test), verbose=1, callbacks=callbacks)
+                #save_history_plot(history_final, "final", folder_name_logging, ['categorical_crossentropy', 'loss', 'accuracy'])
+
+                model_final.load_weights(str(Path(folder_name_logging, "final_model_weights.h5")))
         else:
             model_final.compile(loss='categorical_crossentropy', optimizer=keras.optimizers.SGD(lr=learning_rate_first_cycle_final, momentum=0.9, decay=0.0, nesterov=False), metrics=[keras.metrics.categorical_crossentropy, 'accuracy'])
 
-        if  modes['train_final_model']:
-            print('Train final model:')
-            if dataset_name == 'imagenet':
-                history_final = model_final.fit(datagen_train.flow_from_directory(dataset_train_image_path, shuffle=True, target_size=(224,224), interpolation='bicubic', batch_size=batch_size_final), epochs=epochs_final, validation_data=(x_test, y_test), verbose=1, callbacks=callbacks, use_multiprocessing=True, workers=32, max_queue_size=128)
-            elif dataset_name == 'CIFAR10':
-                history_final = model_final.fit(datagen_train.flow(x_train, y_train, batch_size=batch_size_final), epochs=epochs_final, validation_data=(x_test, y_test), verbose=1, callbacks=callbacks)
-            #save_history_plot(history_final, "final", folder_name_logging, ['categorical_crossentropy', 'loss', 'accuracy'])
+            if  modes['train_final_model']:
+                print('Train final model:')
+                if dataset_name == 'imagenet':
+                    history_final = model_final.fit(datagen_train.flow_from_directory(dataset_train_image_path, shuffle=True, target_size=(224,224), interpolation='bicubic', batch_size=batch_size_final), epochs=epochs_final, validation_data=(x_test, y_test), verbose=1, callbacks=callbacks, use_multiprocessing=True, workers=32, max_queue_size=128)
+                elif dataset_name == 'CIFAR10':
+                    history_final = model_final.fit(datagen_train.flow(x_train, y_train, batch_size=batch_size_final), epochs=epochs_final, validation_data=(x_test, y_test), verbose=1, callbacks=callbacks)
+                #save_history_plot(history_final, "final", folder_name_logging, ['categorical_crossentropy', 'loss', 'accuracy'])
 
-            model_final.load_weights(str(Path(folder_name_logging, "final_model_weights.h5")))
+                model_final.load_weights(str(Path(folder_name_logging, "final_model_weights.h5")))
 
-            print('Test_final_model')
-            if dataset_name == 'imagenet':
-                val_loss_finetuned, val_entropy_finetuned, val_acc_finetuned = model_final.evaluate(datagen_val, verbose=1)
-            elif dataset_name == 'CIFAR10':
-                val_loss_finetuned, val_entropy_finetuned, val_acc_finetuned = model_final.evaluate(x_test, y_test, verbose=1)
-            print('Loss: {}'.format(val_loss_finetuned))
-            print('Entropy: {:.5f}'.format(val_entropy_finetuned))
-            print('Accuracy: {}'.format(val_acc_finetuned))
-
-            model_final.load_weights(str(Path(folder_name_logging, "final_model_weights.h5")))
+        print('Test_final_model')
+        if dataset_name == 'imagenet':
+            val_loss_finetuned, val_entropy_finetuned, val_acc_finetuned = model_final.evaluate(datagen_val, verbose=1)
+        elif dataset_name == 'CIFAR10':
+            val_loss_finetuned, val_entropy_finetuned, val_acc_finetuned = model_final.evaluate(x_test, y_test, verbose=1)
+        print('Loss: {}'.format(val_loss_finetuned))
+        print('Entropy: {:.5f}'.format(val_entropy_finetuned))
+        print('Accuracy: {}'.format(val_acc_finetuned))
         
         logging.info('')
         logging.info('Final model weights saved to {}'.format(folder_name_logging))
