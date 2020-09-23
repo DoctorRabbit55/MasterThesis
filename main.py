@@ -170,27 +170,30 @@ if __name__ == '__main__':
     # load/create model
     model_original = None
 
-    if model_type == 'MobileNetV2':
-        if load_model_from_file:
-            model_original = keras.models.load_model(model_file_path)
-        elif weights_file_path == 'imagenet':
-            model_original = create_mobilenet_v2(is_pretrained=True, num_classes=num_classes, input_shape=input_shape, mobilenet_shape=(input_image_size,input_image_size,3), num_change_strides=number_change_stride_layers)
-        else:
-            model_original = create_mobilenet_v2(is_pretrained=False, num_classes=num_classes, input_shape=input_shape, mobilenet_shape=(input_image_size,input_image_size,3), num_change_strides=number_change_stride_layers)
+    strategy = tf.distribute.MirroredStrategy()
+    print('Number of devices: {}'.format(strategy.num_replicas_in_sync))
+    with strategy.scope():
+        if model_type == 'MobileNetV2':
+            if load_model_from_file:
+                model_original = keras.models.load_model(model_file_path)
+            elif weights_file_path == 'imagenet':
+                model_original = create_mobilenet_v2(is_pretrained=True, num_classes=num_classes, input_shape=input_shape, mobilenet_shape=(input_image_size,input_image_size,3), num_change_strides=number_change_stride_layers)
+            else:
+                model_original = create_mobilenet_v2(is_pretrained=False, num_classes=num_classes, input_shape=input_shape, mobilenet_shape=(input_image_size,input_image_size,3), num_change_strides=number_change_stride_layers)
 
 
-    if 'MobileNetV3' in model_type:
+        if 'MobileNetV3' in model_type:
 
-        is_small = True
-        if model_type[11:] == 'Large':
-            is_small = False
+            is_small = True
+            if model_type[11:] == 'Large':
+                is_small = False
 
-        if load_model_from_file:
-            model_original = keras.models.load_model(model_file_path)
-        elif weights_file_path == 'imagenet':
-            model_original = create_mobilenet_v3(is_pretrained=True, num_classes=num_classes, is_small=is_small, input_shape=input_shape, mobilenet_shape=(input_image_size,input_image_size,3), num_change_strides=number_change_stride_layers)           
-        else:
-            model_original = create_mobilenet_v3(is_pretrained=False, num_classes=num_classes, is_small=is_small, input_shape=input_shape, mobilenet_shape=(input_image_size,input_image_size,3), num_change_strides=number_change_stride_layers)
+            if load_model_from_file:
+                model_original = keras.models.load_model(model_file_path)
+            elif weights_file_path == 'imagenet':
+                model_original = create_mobilenet_v3(is_pretrained=True, num_classes=num_classes, is_small=is_small, input_shape=input_shape, mobilenet_shape=(input_image_size,input_image_size,3), num_change_strides=number_change_stride_layers)           
+            else:
+                model_original = create_mobilenet_v3(is_pretrained=False, num_classes=num_classes, is_small=is_small, input_shape=input_shape, mobilenet_shape=(input_image_size,input_image_size,3), num_change_strides=number_change_stride_layers)
 
     if pretrained:
         model_original.load_weights(weights_file_path)
@@ -203,8 +206,9 @@ if __name__ == '__main__':
     epochs_original = epochs_first_cycle_original + epochs_second_cycle_original
     learning_rate_first_cycle_original = training_original_model.getfloat('learning_rate_first_cycle')
     learning_rate_second_cycle_original = training_original_model.getfloat('learning_rate_second_cycle')
-
-    model_original.compile(loss='categorical_crossentropy', optimizer=keras.optimizers.SGD(lr=learning_rate_first_cycle_original, momentum=0.9, decay=0.0), metrics=[keras.metrics.categorical_crossentropy, 'accuracy'])
+    
+    with strategy.scope():
+        model_original.compile(loss='categorical_crossentropy', optimizer=keras.optimizers.SGD(lr=learning_rate_first_cycle_original, momentum=0.9, decay=0.0), metrics=[keras.metrics.categorical_crossentropy, 'accuracy'])
 
     logging.info('')
     logging.info('#######################################################################################################')
@@ -282,15 +286,15 @@ if __name__ == '__main__':
     logging.info('')
     logging.info('know_quot of all blocks: {:.3f}'.format(know_quot))
     
-
-    if shunt_params['from_file']:
-        model_shunt = keras.models.load_model(shunt_params['filepath'])
-        print('Shunt model loaded successfully!')
-    else:
-        input_shape_shunt = model_original.get_layer(index=loc1).input_shape[1:]
-        output_shape_shunt = model_original.get_layer(index=loc2).output_shape[1:]
-        model_shunt = Architectures.createShunt(input_shape_shunt, output_shape_shunt, arch=shunt_params['arch'], use_se=shunt_params['use_se'])
-    
+    with strategy.scope():
+        if shunt_params['from_file']:
+            model_shunt = keras.models.load_model(shunt_params['filepath'])
+            print('Shunt model loaded successfully!')
+        else:
+            input_shape_shunt = model_original.get_layer(index=loc1).input_shape[1:]
+            output_shape_shunt = model_original.get_layer(index=loc2).output_shape[1:]
+            model_shunt = Architectures.createShunt(input_shape_shunt, output_shape_shunt, arch=shunt_params['arch'], use_se=shunt_params['use_se'])
+        
     model_shunt.summary(print_fn=logger.info, line_length=150)
 
     keras.models.save_model(model_shunt, Path(folder_name_logging, "shunt_model.h5"))
@@ -305,8 +309,6 @@ if __name__ == '__main__':
     learning_rate_first_cycle_shunt = training_shunt_model.getfloat('learning_rate_first_cycle')
     learning_rate_second_cycle_shunt = training_shunt_model.getfloat('learning_rate_second_cycle')
 
-    strategy = tf.distribute.MirroredStrategy()
-    print('Number of devices: {}'.format(strategy.num_replicas_in_sync))
     with strategy.scope():
         model_training_shunt = create_shunt_trainings_model(model_original, model_shunt, (loc1, loc2))
         model_training_shunt.compile(loss=mean_squared_diff, optimizer=keras.optimizers.Adam(learning_rate=learning_rate_first_cycle_shunt, decay=0.0))
@@ -321,8 +323,9 @@ if __name__ == '__main__':
             print('Shunt weights loaded successfully!')
 
     flops_shunt = calculateFLOPs_model(model_shunt)
-
-    model_shunt.compile(loss=keras.losses.mean_squared_error, optimizer=keras.optimizers.Adam(learning_rate=learning_rate_first_cycle_shunt, decay=0.0), metrics=[keras.metrics.MeanSquaredError()])
+    
+    with strategy.scope():
+        model_shunt.compile(loss=keras.losses.mean_squared_error, optimizer=keras.optimizers.Adam(learning_rate=learning_rate_first_cycle_shunt, decay=0.0), metrics=[keras.metrics.MeanSquaredError()])
 
     callback_checkpoint = keras.callbacks.ModelCheckpoint(str(Path(folder_name_logging, "shunt_model_weights.h5")), save_best_only=True, monitor='val_loss', mode='min', save_weights_only=True)
     callback_learning_rate = LearningRateSchedulerCallback(epochs_first_cycle=epochs_first_cycle_shunt, learning_rate_second_cycle=learning_rate_second_cycle_shunt)
