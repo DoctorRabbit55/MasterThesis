@@ -540,7 +540,7 @@ if __name__ == '__main__':
             # build loss dict
             loss_distillation = {'Student': 'categorical_crossentropy'}
             for output in model_final.output:
-                output_name = output.op.name[:-len('/Identity')] # cut off unimportant part
+                output_name = output.name.split('/')[0] # cut off unimportant part
                 if 'a_t_' in output_name or 'dark_knowledge' in output_name:
                     loss_distillation[output_name] = mean_squared_diff
 
