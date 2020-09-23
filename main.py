@@ -305,9 +305,12 @@ if __name__ == '__main__':
     learning_rate_first_cycle_shunt = training_shunt_model.getfloat('learning_rate_first_cycle')
     learning_rate_second_cycle_shunt = training_shunt_model.getfloat('learning_rate_second_cycle')
 
-    model_training_shunt = create_shunt_trainings_model(model_original, model_shunt, (loc1, loc2))
-    model_training_shunt.compile(loss=mean_squared_diff, optimizer=keras.optimizers.Adam(learning_rate=learning_rate_first_cycle_shunt, decay=0.0))
-    model_training_shunt.add_loss(mean_squared_diff(None, model_training_shunt.outputs[0]))
+    strategy = tf.distribute.MirroredStrategy()
+    print('Number of devices: {}'.format(strategy.num_replicas_in_sync))
+    with strategy.scope():
+        model_training_shunt = create_shunt_trainings_model(model_original, model_shunt, (loc1, loc2))
+        model_training_shunt.compile(loss=mean_squared_diff, optimizer=keras.optimizers.Adam(learning_rate=learning_rate_first_cycle_shunt, decay=0.0))
+        model_training_shunt.add_loss(mean_squared_diff(None, model_training_shunt.outputs[0]))
 
     if shunt_params['pretrained']:
         if dataset_name == 'imagenet':
