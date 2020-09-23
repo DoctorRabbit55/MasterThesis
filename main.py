@@ -227,7 +227,7 @@ if __name__ == '__main__':
             history_original = model_original.fit(datagen_train.flow(x_train, y_train, batch_size=batch_size_original), epochs=epochs_original, validation_data=(x_test, y_test), verbose=1, callbacks=[callback_checkpoint, callback_learning_rate])
 
         model_original.load_weights(str(Path(folder_name_logging, "original_model_weights.h5")))
-        save_history_plot(history_original, "original", folder_name_logging, ['categorical_crossentropy', 'loss', 'accuracy'])
+        #save_history_plot(history_original, "original", folder_name_logging, ['categorical_crossentropy', 'loss', 'accuracy'])
 
     # test original model
     
@@ -335,7 +335,7 @@ if __name__ == '__main__':
 
                 history_shunt = model_training_shunt.fit(zip(datagen_train.flow_from_directory(dataset_train_image_path, class_mode=None, shuffle=True, target_size=(224,224), interpolation='bicubic', batch_size=batch_size_shunt), train_dummy_data), epochs=epochs_shunt, steps_per_epoch=len_train_data//batch_size_shunt, validation_data=datagen_val_dummy, verbose=1, callbacks=[callback_checkpoint, callback_learning_rate],
                                                          use_multiprocessing=True, workers=32, max_queue_size=64)
-                save_history_plot(history_shunt, "shunt", folder_name_logging, ['loss'])
+                #save_history_plot(history_shunt, "shunt", folder_name_logging, ['loss'])
                 model_training_shunt.load_weights(str(Path(folder_name_logging, "shunt_model_weights.h5")))
 
             if modes['test_shunt_model']:
@@ -556,7 +556,7 @@ if __name__ == '__main__':
                 history_final = model_final.fit(datagen_train.flow_from_directory(dataset_train_image_path, shuffle=True, target_size=(224,224), interpolation='bicubic', batch_size=batch_size_final), epochs=epochs_final, validation_data=(x_test, y_test), verbose=1, callbacks=callbacks, use_multiprocessing=True, workers=32, max_queue_size=128)
             elif dataset_name == 'CIFAR10':
                 history_final = model_final.fit(datagen_train.flow(x_train, y_train, batch_size=batch_size_final), epochs=epochs_final, validation_data=(x_test, y_test), verbose=1, callbacks=callbacks)
-            save_history_plot(history_final, "final", folder_name_logging, ['categorical_crossentropy', 'loss', 'accuracy'])
+            #save_history_plot(history_final, "final", folder_name_logging, ['categorical_crossentropy', 'loss', 'accuracy'])
 
             model_final.load_weights(str(Path(folder_name_logging, "final_model_weights.h5")))
 
