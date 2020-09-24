@@ -153,8 +153,6 @@ if __name__ == '__main__':
         len_val_data = 50000
         batch_size_imagenet = 64
 
-        feature_maps_fit_in_ram = False
-
         datagen_val = create_imagenet_dataset(dataset_val_image_path, batch_size=batch_size_imagenet)
 
         datagen_train = create_imagenet_dataset(dataset_train_image_path, batch_size=batch_size_imagenet)
@@ -229,7 +227,7 @@ if __name__ == '__main__':
     
     print('Test original model')
     if dataset_name == 'imagenet':
-        val_loss_original, val_entropy_original, val_acc_original = model_original.evaluate(datagen_val, verbose=1, use_multiprocessing=True, workers=32, max_queue_size=64)
+        val_loss_original, val_entropy_original, val_acc_original = model_original.evaluate(datagen_val, steps=len_val_data//batch_size_imagenet, verbose=1, use_multiprocessing=True, workers=32, max_queue_size=64)
     elif dataset_name == 'CIFAR10':
         val_loss_original, val_entropy_original, val_acc_original = model_original.evaluate(x_test, y_test, verbose=1)
 
