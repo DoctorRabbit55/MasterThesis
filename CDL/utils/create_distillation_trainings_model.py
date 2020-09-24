@@ -144,9 +144,10 @@ def create_knowledge_distillation_model(model_student, model_teacher, add_dark_k
 
     if add_attention_transfer:  # add layers for attention transfer loss
         for i in range(len(outputs_teacher)-1): 
-            loss = Subtract()([outputs_teacher[i], outputs_student[i+1]])
+            teacher_out = Lambda(lambda x: K.l2_normalize(x, axis=1))(outputs_teacher[i])
+            student_out = Lambda(lambda x: K.l2_normalize(x, axis=1))(outputs_student[i+1])
+            loss = Subtract()([teacher_out, student_out])
             loss = Flatten(name='a_t_{}'.format(i))(loss)
-            #loss = K.l2_normalize(loss,axis=1)
             losses.append(loss)
 
     if add_dark_knowledge:   # add dark knowledge loss
@@ -156,6 +157,6 @@ def create_knowledge_distillation_model(model_student, model_teacher, add_dark_k
 
     model_distillation = Model(input_net, [outputs_student[0]] + losses, name='knowledge_distillation')
 
-    print(model_distillation.summary())
+    print(model_distillation.summary(line_length=150))
 
     return model_distillation

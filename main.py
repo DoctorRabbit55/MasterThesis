@@ -17,7 +17,7 @@ from CDL.utils.calculateFLOPS import calculateFLOPs_model, calculateFLOPs_blocks
 from CDL.utils.dataset_utils import *
 from CDL.utils.get_knowledge_quotients import get_knowledge_quotients, get_knowledge_quotient
 from CDL.utils.generic_utils import *
-from CDL.utils.keras_utils import extract_feature_maps, modify_model, identify_residual_layer_indexes, mean_squared_diff
+from CDL.utils.keras_utils import extract_feature_maps, modify_model, identify_residual_layer_indexes, create_mean_squared_diff_loss
 from CDL.utils.custom_callbacks import UnfreezeLayersCallback, LearningRateSchedulerCallback, SaveNestedModelCallabck
 from CDL.utils.custom_generators import Imagenet_generator, Imagenet_train_shunt_generator
 
@@ -170,30 +170,28 @@ if __name__ == '__main__':
     # load/create model
     model_original = None
 
-    strategy = tf.distribute.MirroredStrategy()
-    print('Number of devices: {}'.format(strategy.num_replicas_in_sync))
-    with strategy.scope():
-        if model_type == 'MobileNetV2':
-            if load_model_from_file:
-                model_original = keras.models.load_model(model_file_path)
-            elif weights_file_path == 'imagenet':
-                model_original = create_mobilenet_v2(is_pretrained=True, num_classes=num_classes, input_shape=input_shape, mobilenet_shape=(input_image_size,input_image_size,3), num_change_strides=number_change_stride_layers)
-            else:
-                model_original = create_mobilenet_v2(is_pretrained=False, num_classes=num_classes, input_shape=input_shape, mobilenet_shape=(input_image_size,input_image_size,3), num_change_strides=number_change_stride_layers)
+
+    if model_type == 'MobileNetV2':
+        if load_model_from_file:
+            model_original = keras.models.load_model(model_file_path)
+        elif weights_file_path == 'imagenet':
+            model_original = create_mobilenet_v2(is_pretrained=True, num_classes=num_classes, input_shape=input_shape, mobilenet_shape=(input_image_size,input_image_size,3), num_change_strides=number_change_stride_layers)
+        else:
+            model_original = create_mobilenet_v2(is_pretrained=False, num_classes=num_classes, input_shape=input_shape, mobilenet_shape=(input_image_size,input_image_size,3), num_change_strides=number_change_stride_layers)
 
 
-        if 'MobileNetV3' in model_type:
+    if 'MobileNetV3' in model_type:
 
-            is_small = True
-            if model_type[11:] == 'Large':
-                is_small = False
+        is_small = True
+        if model_type[11:] == 'Large':
+            is_small = False
 
-            if load_model_from_file:
-                model_original = keras.models.load_model(model_file_path)
-            elif weights_file_path == 'imagenet':
-                model_original = create_mobilenet_v3(is_pretrained=True, num_classes=num_classes, is_small=is_small, input_shape=input_shape, mobilenet_shape=(input_image_size,input_image_size,3), num_change_strides=number_change_stride_layers)           
-            else:
-                model_original = create_mobilenet_v3(is_pretrained=False, num_classes=num_classes, is_small=is_small, input_shape=input_shape, mobilenet_shape=(input_image_size,input_image_size,3), num_change_strides=number_change_stride_layers)
+        if load_model_from_file:
+            model_original = keras.models.load_model(model_file_path)
+        elif weights_file_path == 'imagenet':
+            model_original = create_mobilenet_v3(is_pretrained=True, num_classes=num_classes, is_small=is_small, input_shape=input_shape, mobilenet_shape=(input_image_size,input_image_size,3), num_change_strides=number_change_stride_layers)           
+        else:
+            model_original = create_mobilenet_v3(is_pretrained=False, num_classes=num_classes, is_small=is_small, input_shape=input_shape, mobilenet_shape=(input_image_size,input_image_size,3), num_change_strides=number_change_stride_layers)
 
     if pretrained:
         model_original.load_weights(weights_file_path)
@@ -207,8 +205,7 @@ if __name__ == '__main__':
     learning_rate_first_cycle_original = training_original_model.getfloat('learning_rate_first_cycle')
     learning_rate_second_cycle_original = training_original_model.getfloat('learning_rate_second_cycle')
     
-    with strategy.scope():
-        model_original.compile(loss='categorical_crossentropy', optimizer=keras.optimizers.SGD(lr=learning_rate_first_cycle_original, momentum=0.9, decay=0.0), metrics=[keras.metrics.categorical_crossentropy, 'accuracy'])
+    model_original.compile(loss='categorical_crossentropy', optimizer=keras.optimizers.SGD(lr=learning_rate_first_cycle_original, momentum=0.9, decay=0.0), metrics=[keras.metrics.categorical_crossentropy, 'accuracy'])
 
     logging.info('')
     logging.info('#######################################################################################################')
@@ -286,14 +283,13 @@ if __name__ == '__main__':
     logging.info('')
     logging.info('know_quot of all blocks: {:.3f}'.format(know_quot))
     
-    with strategy.scope():
-        if shunt_params['from_file']:
-            model_shunt = keras.models.load_model(shunt_params['filepath'])
-            print('Shunt model loaded successfully!')
-        else:
-            input_shape_shunt = model_original.get_layer(index=loc1).input_shape[1:]
-            output_shape_shunt = model_original.get_layer(index=loc2).output_shape[1:]
-            model_shunt = Architectures.createShunt(input_shape_shunt, output_shape_shunt, arch=shunt_params['arch'], use_se=shunt_params['use_se'])
+    if shunt_params['from_file']:
+        model_shunt = keras.models.load_model(shunt_params['filepath'])
+        print('Shunt model loaded successfully!')
+    else:
+        input_shape_shunt = model_original.get_layer(index=loc1).input_shape[1:]
+        output_shape_shunt = model_original.get_layer(index=loc2).output_shape[1:]
+        model_shunt = Architectures.createShunt(input_shape_shunt, output_shape_shunt, arch=shunt_params['arch'], use_se=shunt_params['use_se'])
         
     model_shunt.summary(print_fn=logger.info, line_length=150)
 
@@ -309,10 +305,9 @@ if __name__ == '__main__':
     learning_rate_first_cycle_shunt = training_shunt_model.getfloat('learning_rate_first_cycle')
     learning_rate_second_cycle_shunt = training_shunt_model.getfloat('learning_rate_second_cycle')
 
-    with strategy.scope():
-        model_training_shunt = create_shunt_trainings_model(model_original, model_shunt, (loc1, loc2))
-        model_training_shunt.compile(loss=mean_squared_diff, optimizer=keras.optimizers.Adam(learning_rate=learning_rate_first_cycle_shunt, decay=0.0))
-        model_training_shunt.add_loss(mean_squared_diff(None, model_training_shunt.outputs[0]))
+    model_training_shunt = create_shunt_trainings_model(model_original, model_shunt, (loc1, loc2))
+    model_training_shunt.compile(loss=create_mean_squared_diff_loss(), optimizer=keras.optimizers.Adam(learning_rate=learning_rate_first_cycle_shunt, decay=0.0))
+    #model_training_shunt.add_loss(mean_squared_diff(None, model_training_shunt.outputs[0]))
 
     if shunt_params['pretrained']:
         if dataset_name == 'imagenet':
@@ -324,8 +319,7 @@ if __name__ == '__main__':
 
     flops_shunt = calculateFLOPs_model(model_shunt)
     
-    with strategy.scope():
-        model_shunt.compile(loss=keras.losses.mean_squared_error, optimizer=keras.optimizers.Adam(learning_rate=learning_rate_first_cycle_shunt, decay=0.0), metrics=[keras.metrics.MeanSquaredError()])
+    model_shunt.compile(loss=keras.losses.mean_squared_error, optimizer=keras.optimizers.Adam(learning_rate=learning_rate_first_cycle_shunt, decay=0.0), metrics=[keras.metrics.MeanSquaredError()])
 
     callback_checkpoint = keras.callbacks.ModelCheckpoint(str(Path(folder_name_logging, "shunt_model_weights.h5")), save_best_only=True, monitor='val_loss', mode='min', save_weights_only=True)
     callback_learning_rate = LearningRateSchedulerCallback(epochs_first_cycle=epochs_first_cycle_shunt, learning_rate_second_cycle=learning_rate_second_cycle_shunt)
@@ -420,9 +414,9 @@ if __name__ == '__main__':
         val_loss_inserted, val_entropy_inserted, val_acc_inserted = model_final.evaluate(datagen_val, verbose=1)
     elif dataset_name == 'CIFAR10':
         val_loss_inserted, val_entropy_inserted, val_acc_inserted = model_final.evaluate(x_test, y_test, verbose=1)
-        predictions = model_final.predict(x_test, verbose=1)
-        report = classification_report(np.argmax(predictions, axis=1), np.argmax(y_test, axis=1))
-        print(report)
+        #predictions = model_final.predict(x_test, verbose=1)
+        #report = classification_report(np.argmax(predictions, axis=1), np.argmax(y_test, axis=1))
+        #print(report)
 
     print('Loss: {:.5f}'.format(val_loss_inserted))
     print('Entropy: {:.5f}'.format(val_entropy_inserted))
@@ -438,9 +432,9 @@ if __name__ == '__main__':
         elif dataset_name == 'CIFAR10':
             val_loss_inserted, val_entropy_inserted, val_acc_inserted = model_final.evaluate(x_test, y_test, verbose=1)      
 
-            predictions = model_final.predict(x_test, verbose=1)
-            report = classification_report(np.argmax(predictions, axis=1), np.argmax(y_test, axis=1))
-            print(report)
+            #predictions = model_final.predict(x_test, verbose=1)
+            #report = classification_report(np.argmax(predictions, axis=1), np.argmax(y_test, axis=1))
+            #print(report)
 
         print('Loss: {:.5f}'.format(val_loss_inserted))
         print('Entropy: {:.5f}'.format(val_entropy_inserted))
@@ -534,7 +528,7 @@ if __name__ == '__main__':
                 layer.trainable = False
 
         add_dark_knowledge = training_final_model.getboolean('add_dark_knowledge')
-        temperature = training_final_model.getint('temperature')
+        temperature = training_final_model.getfloat('temperature')
         add_attention_transfer = training_final_model.getboolean('add_attention_transfer')
         max_number_transfers = None
         if add_attention_transfer:
@@ -548,7 +542,7 @@ if __name__ == '__main__':
             for output in model_final_dist.output:
                 output_name = output.name.split('/')[0] # cut off unimportant part
                 if 'a_t_' in output_name or 'dark_knowledge' in output_name:
-                    loss_distillation[output_name] = mean_squared_diff
+                    loss_distillation[output_name] = create_mean_squared_diff_loss()
 
             model_final_dist.compile(loss=loss_distillation, optimizer=keras.optimizers.SGD(lr=learning_rate_first_cycle_final, momentum=0.9, decay=0.0, nesterov=False), metrics={'Student': 'accuracy'})
             callbacks = [SaveNestedModelCallabck('val_Student_accuracy', str(Path(folder_name_logging, "final_model_weights.h5")), 'Student')]
