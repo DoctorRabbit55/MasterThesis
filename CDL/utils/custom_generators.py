@@ -45,10 +45,11 @@ def create_imagenet_dataset(file_path, batch_size=64):
 
         label = tf.one_hot(indices=label, depth=1000)
         return img, label
-    ds = ds.map(parse_function)
+    ds = ds.map(parse_function, num_parallel_calls=20)
     
     ds = ds.shuffle(2000)
     ds = ds.batch(batch_size)
+    ds = ds.repeat(40)
     ds = ds.prefetch(tf.data.experimental.AUTOTUNE)
 
     return ds
