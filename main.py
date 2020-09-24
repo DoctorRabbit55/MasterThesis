@@ -269,7 +269,7 @@ if __name__ == '__main__':
 
     loc1 = shunt_params['locations'][0]
     loc2 = shunt_params['locations'][1]
-    
+    '''
     print('Calculate know. quot. of all blocks')
     if dataset_name == 'imagenet':
         know_quot = get_knowledge_quotient(model=model_original, datagen=datagen_val, val_acc_model=val_acc_original, locations=[loc1, loc2])
@@ -277,6 +277,7 @@ if __name__ == '__main__':
         know_quot = get_knowledge_quotient(model=model_original, datagen=(x_test, y_test), val_acc_model=val_acc_original, locations=[loc1, loc2])
     logging.info('')
     logging.info('know_quot of all blocks: {:.3f}'.format(know_quot))
+    '''
     with strategy.scope():
         if shunt_params['from_file']:
             model_shunt = keras.models.load_model(shunt_params['filepath'])
