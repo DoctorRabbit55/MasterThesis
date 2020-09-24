@@ -17,9 +17,9 @@ from CDL.utils.calculateFLOPS import calculateFLOPs_model, calculateFLOPs_blocks
 from CDL.utils.dataset_utils import *
 from CDL.utils.get_knowledge_quotients import get_knowledge_quotients, get_knowledge_quotient
 from CDL.utils.generic_utils import *
-from CDL.utils.keras_utils import extract_feature_maps, modify_model, identify_residual_layer_indexes, create_mean_squared_diff_loss
+from CDL.utils.keras_utils import extract_feature_maps, modify_model, identify_residual_layer_indexes, create_mean_squared_diff_loss, mean_squared_diff
 from CDL.utils.custom_callbacks import UnfreezeLayersCallback, LearningRateSchedulerCallback, SaveNestedModelCallabck
-from CDL.utils.custom_generators import Imagenet_generator, Imagenet_train_shunt_generator
+from CDL.utils.custom_generators import create_imagenet_dataset
 
 import tensorflow as tf
 from tensorflow.keras.datasets import cifar10
@@ -143,27 +143,21 @@ if __name__ == '__main__':
 
     if dataset_name == 'imagenet':
 
-        dataset_val_image_path = Path(dataset_path, "val", "images")
-        dataset_train_image_path = Path(dataset_path, "train")
+        dataset_val_image_path = Path(dataset_path, "val", "records")
+        dataset_train_image_path = Path(dataset_path, "train", "records")
         dataset_ground_truth_file_path = Path(dataset_path, "val", "val.txt")
 
         num_classes = 1000
         input_shape = (224,224,3)
         len_train_data = 1281167
         len_val_data = 50000
+        batch_size_imagenet = 64
 
         feature_maps_fit_in_ram = False
 
-        datagen_val = Imagenet_generator(dataset_val_image_path, dataset_ground_truth_file_path, shuffle=False)
+        datagen_val = create_imagenet_dataset(dataset_val_image_path, batch_size=batch_size_imagenet)
 
-        datagen_train = ImageDataGenerator(
-            featurewise_center=False,
-            featurewise_std_normalization=False,
-            rotation_range=0.0,
-            width_shift_range=0.2,
-            height_shift_range=0.2,
-            horizontal_flip=True,
-            preprocessing_function=keras.applications.mobilenet.preprocess_input)
+        datagen_train = create_imagenet_dataset(dataset_train_image_path, batch_size=batch_size_imagenet)
 
         print('Imagenet was loaded successfully!')
 
@@ -223,7 +217,7 @@ if __name__ == '__main__':
     if modes['train_original_model']:
         print('Train original model:')
         if dataset_name == 'imagenet':
-            history_original = model_original.fit(datagen_train.flow_from_directory(dataset_train_image_path, shuffle=True, target_size=(224,224), interpolation='bicubic', batch_size=batch_size_original), epochs=epochs_original, validation_data=(x_test, y_test), verbose=1, callbacks=[callback_checkpoint, callback_learning_rate])
+            history_original = model_original.fit(datagen_train, epochs=epochs_original, steps_per_epoch=len_train_data // batch_size_imagenet, validation_data=datagen_val, verbose=1, callbacks=[callback_checkpoint, callback_learning_rate])
         elif dataset_name == 'CIFAR10':
             history_original = model_original.fit(datagen_train.flow(x_train, y_train, batch_size=batch_size_original), epochs=epochs_original, validation_data=(x_test, y_test), verbose=1, callbacks=[callback_checkpoint, callback_learning_rate])
 
@@ -306,7 +300,7 @@ if __name__ == '__main__':
     learning_rate_second_cycle_shunt = training_shunt_model.getfloat('learning_rate_second_cycle')
 
     model_training_shunt = create_shunt_trainings_model(model_original, model_shunt, (loc1, loc2))
-    model_training_shunt.compile(loss=create_mean_squared_diff_loss(), optimizer=keras.optimizers.Adam(learning_rate=learning_rate_first_cycle_shunt, decay=0.0))
+    model_training_shunt.compile(loss=mean_squared_diff, optimizer=keras.optimizers.Adam(learning_rate=learning_rate_first_cycle_shunt, decay=0.0))
     #model_training_shunt.add_loss(mean_squared_diff(None, model_training_shunt.outputs[0]))
 
     if shunt_params['pretrained']:
@@ -329,19 +323,14 @@ if __name__ == '__main__':
         if dataset_name == 'imagenet':
 
             if modes['train_shunt_model']:
-                print('Train shunt model:')
-                train_dummy_data = [None] * len_train_data
-                datagen_val_dummy = Imagenet_train_shunt_generator(dataset_val_image_path, dataset_ground_truth_file_path, shuffle=False)
-
-                history_shunt = model_training_shunt.fit(zip(datagen_train.flow_from_directory(dataset_train_image_path, class_mode=None, shuffle=True, target_size=(224,224), interpolation='bicubic', batch_size=batch_size_shunt), train_dummy_data), epochs=epochs_shunt, steps_per_epoch=len_train_data//batch_size_shunt, validation_data=datagen_val_dummy, verbose=1, callbacks=[callback_checkpoint, callback_learning_rate],
+                history_shunt = model_training_shunt.fit(datagen_train, epochs=epochs_original, steps_per_epoch=len_train_data // batch_size_imagenet, validation_data=datagen_val, verbose=1, callbacks=[callback_checkpoint, callback_learning_rate],
                                                          use_multiprocessing=True, workers=32, max_queue_size=64)
                 #save_history_plot(history_shunt, "shunt", folder_name_logging, ['loss'])
                 model_training_shunt.load_weights(str(Path(folder_name_logging, "shunt_model_weights.h5")))
 
             if modes['test_shunt_model']:
                 print('Test shunt model')
-                datagen_val_dummy = Imagenet_train_shunt_generator(dataset_val_image_path, dataset_ground_truth_file_path, shuffle=False)
-                val_loss_shunt, val_acc_shunt, = model_training_shunt.evaluate(datagen_val_dummy, verbose=1)
+                val_loss_shunt, val_acc_shunt, = model_training_shunt.evaluate(datagen_val, verbose=1)
                 print('Loss: {:.5f}'.format(val_loss_shunt))
                 print('Accuracy: {:.5f}'.format(val_acc_shunt))
 
@@ -551,7 +540,7 @@ if __name__ == '__main__':
             if  modes['train_final_model']:
                 print('Train final model:')
                 if dataset_name == 'imagenet':
-                    history_final = model_final_dist.fit(datagen_train.flow_from_directory(dataset_train_image_path, shuffle=True, target_size=(224,224), interpolation='bicubic', batch_size=batch_size_final), epochs=epochs_final, validation_data=(x_test, y_test), verbose=1, callbacks=callbacks, use_multiprocessing=True, workers=32, max_queue_size=128)
+                    history_final = model_final_dist.fit(datagen_train, epochs=epochs_original, steps_per_epoch=len_train_data // batch_size_imagenet, validation_data=datagen_val, verbose=1, callbacks=callbacks, use_multiprocessing=True, workers=32, max_queue_size=128)
                 elif dataset_name == 'CIFAR10':
                     history_final = model_final_dist.fit(datagen_train.flow(x_train, y_train, batch_size=batch_size_final), epochs=epochs_final, validation_data=(x_test, y_test), verbose=1, callbacks=callbacks)
                 #save_history_plot(history_final, "final", folder_name_logging, ['categorical_crossentropy', 'loss', 'accuracy'])
@@ -563,7 +552,7 @@ if __name__ == '__main__':
             if  modes['train_final_model']:
                 print('Train final model:')
                 if dataset_name == 'imagenet':
-                    history_final = model_final.fit(datagen_train.flow_from_directory(dataset_train_image_path, shuffle=True, target_size=(224,224), interpolation='bicubic', batch_size=batch_size_final), epochs=epochs_final, validation_data=(x_test, y_test), verbose=1, callbacks=callbacks, use_multiprocessing=True, workers=32, max_queue_size=128)
+                    history_final = model_final.fit(datagen_train, epochs=epochs_original, steps_per_epoch=len_train_data // batch_size_imagenet, validation_data=datagen_val, verbose=1, callbacks=callbacks, use_multiprocessing=True, workers=32, max_queue_size=128)
                 elif dataset_name == 'CIFAR10':
                     history_final = model_final.fit(datagen_train.flow(x_train, y_train, batch_size=batch_size_final), epochs=epochs_final, validation_data=(x_test, y_test), verbose=1, callbacks=callbacks)
                 #save_history_plot(history_final, "final", folder_name_logging, ['categorical_crossentropy', 'loss', 'accuracy'])

@@ -13,127 +13,45 @@ import matplotlib.pyplot as plt
 import cv2
 
 from PIL import Image
-
-class Imagenet_train_shunt_generator(Sequence):
-
-    def __init__(self, x_dir, label_file_path, shuffle=True, batch_size=64):
-        self.batch_size = batch_size
-        self.x_dir = x_dir
-        self.x_file_names = sorted(os.listdir(x_dir))
-        self.shuffle = shuffle
-        self.current_indices = np.arange(len(self.x_file_names))
-
-        self.labels = np.zeros((len(self.x_file_names)), dtype=np.int32)
-
-        with open(label_file_path, 'r') as label_file: 
-            lines = label_file.readlines()
-            for i, line in enumerate(lines):
-                if i == len(self.x_file_names):
-                    break
-                self.labels[i] = int(line.split()[1])
-
-        self.on_epoch_end()
-
-    def on_epoch_end(self):
-        if self.shuffle:
-            np.random.shuffle(self.current_indices)
-            
-    def __len__(self):
-        return len(self.current_indices) // self.batch_size
-
-    def __getitem__(self, index):
-        batch = self.current_indices[index*self.batch_size:(index+1)*self.batch_size]
-        X,y = self.__get_data(batch)
-        return X,y
-
-    def __get_data(self, batch):
-
-        X = np.zeros((len(batch),224,224,3))
-        #y = np.zeros((len(batch),shunt_output_size))
-        y = None
-
-        for i, id in enumerate(batch):
-            #print(str(self.x_dir / self.x_file_names[id]))
-            img = image.load_img(str(self.x_dir / self.x_file_names[id]))
-            #img = image.img_to_array(img)
-
-            height, width = img.size
-            new_height = height * 256 // min(img.size[:2])
-            new_width = width * 256 // min(img.size[:2])
-            img = image.img_to_array(img.resize((new_width, new_height), Image.BICUBIC))
-            
-            # Crop
-            height, width, _ = img.shape
-            startx = width//2 - (224//2)
-            starty = height//2 - (224//2)
-            img = img[starty:starty+224,startx:startx+224]
-
-            X[i,:,:,:] = keras.applications.mobilenet.preprocess_input(img)
-
-            #print(self.labels[id])
-
-        return X,y
-
-class Imagenet_generator(Sequence):
-
-    def __init__(self, x_dir, label_file_path, shuffle=True, batch_size=64):
-        self.batch_size = batch_size
-        self.x_dir = x_dir
-        self.x_file_names = sorted(os.listdir(x_dir))
-        self.shuffle = shuffle
-        self.current_indices = np.arange(len(self.x_file_names))
-
-        self.labels = np.zeros((len(self.x_file_names)), dtype=np.int32)
-
-        with open(label_file_path, 'r') as label_file: 
-            lines = label_file.readlines()
-            for i, line in enumerate(lines):
-                if i == len(self.x_file_names):
-                    break
-                self.labels[i] = int(line.split()[1])
-
-        self.on_epoch_end()
-
-    def on_epoch_end(self):
-        if self.shuffle:
-            np.random.shuffle(self.current_indices)
-            
-    def __len__(self):
-        return len(self.current_indices) // self.batch_size
-
-    def __getitem__(self, index):
-        batch = self.current_indices[index*self.batch_size:(index+1)*self.batch_size]
-        X,y = self.__get_data(batch)
-        return X,y
-
-    def __get_data(self, batch):
-
-        X = np.zeros((len(batch),224,224,3))
-        y = np.zeros((len(batch),1000))
-
-        for i, id in enumerate(batch):
-            #print(str(self.x_dir / self.x_file_names[id]))
-            img = image.load_img(str(self.x_dir / self.x_file_names[id]))
-            #img = image.img_to_array(img)
-
-            height, width = img.size
-            new_height = height * 256 // min(img.size[:2])
-            new_width = width * 256 // min(img.size[:2])
-            img = image.img_to_array(img.resize((new_width, new_height), Image.BICUBIC))
-            
-            # Crop
-            height, width, _ = img.shape
-            startx = width//2 - (224//2)
-            starty = height//2 - (224//2)
-            img = img[starty:starty+224,startx:startx+224]
-
-            X[i,:,:,:] = keras.applications.mobilenet.preprocess_input(img)
-            
-            y[i,:] = np.expand_dims(to_categorical(self.labels[id], num_classes=1000), 0)
-            #print(self.labels[id])
-
-        return X,y
+import matplotlib.pyplot as plt
        
+
+def create_imagenet_dataset(file_path, batch_size=64):
+
+    if not isinstance(file_path, Path):     # convert str to Path
+        file_path = Path(file_path)
+
+    record_file_list = list(map(str, file_path.glob("*")))
+    ds = tf.data.TFRecordDataset(record_file_list)
+    
+    def parse_function(example):
+        feature_descriptor = {
+        'label': tf.io.FixedLenFeature([], tf.int64),
+        'image_raw': tf.io.FixedLenFeature([], tf.string)
+        }
+
+        data = tf.io.parse_single_example(example, feature_descriptor)
+        img = data['image_raw']
+        label = data['label']
+
+        img = tf.image.decode_jpeg(img, channels=3)
+        img = tf.image.convert_image_dtype(img, tf.float32)
+        #img = tf.image.central_crop(img, 0.875)
+        #img = tf.expand_dims(img, 0)
+        #img = tf.compat.v1.image.resize_bilinear(img, (224,224), align_corners=False)
+        #img = tf.squeeze(img, [0])
+        img = tf.subtract(img, 0.5)
+        img = tf.multiply(img, 2.0)
+
+        label = tf.one_hot(indices=label, depth=1000)
+        return img, label
+    ds = ds.map(parse_function)
+    
+    ds = ds.shuffle(2000)
+    ds = ds.batch(batch_size)
+    ds = ds.prefetch(tf.data.experimental.AUTOTUNE)
+
+    return ds
 
 class VOC2012_generator(Sequence):
 
