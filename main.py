@@ -267,7 +267,7 @@ if __name__ == '__main__':
     loc1 = shunt_params['locations'][0]
     loc2 = shunt_params['locations'][1]
     
-    
+    print('Calculate know. quot. of all blocks')
     if dataset_name == 'imagenet':
         know_quot = get_knowledge_quotient(model=model_original, datagen=datagen_val, val_acc_model=val_acc_original, locations=[loc1, loc2])
     elif dataset_name == 'CIFAR10':
@@ -321,7 +321,7 @@ if __name__ == '__main__':
         if dataset_name == 'imagenet':
 
             if modes['train_shunt_model']:
-                history_shunt = model_training_shunt.fit(datagen_train, epochs=epochs_original, steps_per_epoch=len_train_data // batch_size_imagenet, validation_data=datagen_val, verbose=1, callbacks=[callback_checkpoint, callback_learning_rate],
+                history_shunt = model_training_shunt.fit(datagen_train, epochs=epochs_shunt, steps_per_epoch=len_train_data // batch_size_imagenet, validation_data=datagen_val, verbose=1, callbacks=[callback_checkpoint, callback_learning_rate],
                                                          use_multiprocessing=True, workers=32, max_queue_size=64)
                 #save_history_plot(history_shunt, "shunt", folder_name_logging, ['loss'])
                 model_training_shunt.load_weights(str(Path(folder_name_logging, "shunt_model_weights.h5")))
@@ -538,7 +538,7 @@ if __name__ == '__main__':
             if  modes['train_final_model']:
                 print('Train final model:')
                 if dataset_name == 'imagenet':
-                    history_final = model_final_dist.fit(datagen_train, epochs=epochs_original, steps_per_epoch=len_train_data // batch_size_imagenet, validation_data=datagen_val, verbose=1, callbacks=callbacks, use_multiprocessing=True, workers=32, max_queue_size=128)
+                    history_final = model_final_dist.fit(datagen_train, epochs=epochs_final, steps_per_epoch=len_train_data // batch_size_imagenet, validation_data=datagen_val, verbose=1, callbacks=callbacks, use_multiprocessing=True, workers=32, max_queue_size=128)
                 elif dataset_name == 'CIFAR10':
                     history_final = model_final_dist.fit(datagen_train.flow(x_train, y_train, batch_size=batch_size_final), epochs=epochs_final, validation_data=(x_test, y_test), verbose=1, callbacks=callbacks)
                 #save_history_plot(history_final, "final", folder_name_logging, ['categorical_crossentropy', 'loss', 'accuracy'])
