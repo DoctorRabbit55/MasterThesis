@@ -14,6 +14,10 @@ from tensorflow.keras.layers import ReLU, Lambda
 from tensorflow.keras.applications import MobileNetV2
 #from keras_applications.mobilenet_v3 import MobileNetV3Small
 
+def mean_squared_diff(y_true, y_pred):
+    return K.mean(K.square(y_pred))
+
+
 def create_mean_squared_diff_loss(factor=1):
     def mean_squared_diff(y_true, y_pred):
         return factor*K.mean(K.square(y_pred))

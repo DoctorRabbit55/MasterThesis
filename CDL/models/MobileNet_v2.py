@@ -25,7 +25,7 @@ def create_mobilenet_v2(input_shape=(32,32,3), num_classes=10, is_pretrained=Fal
 
     if is_pretrained:
 
-        mobilenet = keras.applications.MobileNetV2(input_shape=mobilenet_shape, include_top=True, alpha=1.0, weights='imagenet')
+        mobilenet = MobileNetV2(input_shape=mobilenet_shape, include_top=True, alpha=1.0, weights='imagenet', backend=keras.backend, layers=keras.layers, models=keras.models, utils=keras.utils)
 
         return mobilenet
 
@@ -168,10 +168,10 @@ from keras_applications.imagenet_utils import _obtain_input_shape
 BASE_WEIGHT_PATH = ('https://github.com/JonathanCMitchell/mobilenet_v2_keras/'
                     'releases/download/v1.1/')
 
-backend = None
-layers = None
-models = None
-keras_utils = None
+backend = keras.backend
+layers = keras.layers
+models = keras.models
+keras_utils = keras.utils
 
 
 def preprocess_input(x, **kwargs):

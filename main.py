@@ -266,7 +266,7 @@ if __name__ == '__main__':
 
     loc1 = shunt_params['locations'][0]
     loc2 = shunt_params['locations'][1]
-    
+    '''
     print('Calculate know. quot. of all blocks')
     if dataset_name == 'imagenet':
         know_quot = get_knowledge_quotient(model=model_original, datagen=datagen_val, val_acc_model=val_acc_original, locations=[loc1, loc2])
@@ -274,13 +274,17 @@ if __name__ == '__main__':
         know_quot = get_knowledge_quotient(model=model_original, datagen=(x_test, y_test), val_acc_model=val_acc_original, locations=[loc1, loc2])
     logging.info('')
     logging.info('know_quot of all blocks: {:.3f}'.format(know_quot))
-    
+    '''
     if shunt_params['from_file']:
         model_shunt = keras.models.load_model(shunt_params['filepath'])
         print('Shunt model loaded successfully!')
     else:
         input_shape_shunt = model_original.get_layer(index=loc1).input_shape[1:]
+        if isinstance(input_shape_shunt, list):
+            input_shape_shunt = input_shape_shunt[0][1:]
         output_shape_shunt = model_original.get_layer(index=loc2).output_shape[1:]
+        if isinstance(output_shape_shunt, list):
+            output_shape_shunt = output_shape_shunt[0][1:]
         model_shunt = Architectures.createShunt(input_shape_shunt, output_shape_shunt, arch=shunt_params['arch'], use_se=shunt_params['use_se'])
         
     model_shunt.summary(print_fn=logger.info, line_length=150)
@@ -398,7 +402,7 @@ if __name__ == '__main__':
     
     print('Test shunt inserted model')
     if dataset_name == 'imagenet':
-        val_loss_inserted, val_entropy_inserted, val_acc_inserted = model_final.evaluate(datagen_val, verbose=1)
+        val_loss_inserted, val_entropy_inserted, val_acc_inserted = model_final.evaluate(datagen_val, steps=len_val_data//batch_size_imagenet, verbose=1)
     elif dataset_name == 'CIFAR10':
         val_loss_inserted, val_entropy_inserted, val_acc_inserted = model_final.evaluate(x_test, y_test, verbose=1)
         #predictions = model_final.predict(x_test, verbose=1)
