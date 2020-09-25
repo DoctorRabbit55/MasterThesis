@@ -278,14 +278,16 @@ if __name__ == '__main__':
     logging.info('')
     logging.info('know_quot of all blocks: {:.3f}'.format(know_quot))
     '''
-    if shunt_params['from_file']:
-        model_shunt = keras.models.load_model(shunt_params['filepath']) 
-        print('Shunt model loaded successfully!')
-    else:
-        input_shape_shunt = model_original.get_layer(index=loc1).input_shape[1:]
-        output_shape_shunt = model_original.get_layer(index=loc2).output_shape[1:]
-        model_shunt = Architectures.createShunt(input_shape_shunt, output_shape_shunt, arch=shunt_params['arch'], use_se=shunt_params['use_se']
 
+    with strategy.scope():
+        if shunt_params['from_file']:
+            model_shunt = keras.models.load_model(shunt_params['filepath'])
+            print('Shunt model loaded successfully!')
+        else:
+            input_shape_shunt = model_original.get_layer(index=loc1).input_shape[1:]
+            output_shape_shunt = model_original.get_layer(index=loc2).output_shape[1:]
+            model_shunt = Architectures.createShunt(input_shape_shunt, output_shape_shunt, arch=shunt_params['arch'], use_se=shunt_params['use_se'])
+        
     model_shunt.summary(print_fn=logger.info, line_length=150)
 
     keras.models.save_model(model_shunt, Path(folder_name_logging, "shunt_model.h5"))
@@ -324,7 +326,7 @@ if __name__ == '__main__':
         if dataset_name == 'imagenet':
 
             if modes['train_shunt_model']:
-                history_shunt = model_training_shunt.fit(datagen_train, epochs=epochs_shunt, steps_per_epoch=len_train_data//(batch_size_imagenet), validation_data=datagen_val, verbose=1, callbacks=[callback_checkpoint, callback_learning_rate],
+                history_shunt = model_training_shunt.fit(datagen_train, epochs=epochs_shunt, steps_per_epoch=len_train_data//(batch_size_imagenet), validation_data=datagen_val, validation_steps=len_val_data//batch_size_imagenet, verbose=1, callbacks=[callback_checkpoint, callback_learning_rate],
                                                          use_multiprocessing=False, workers=1, max_queue_size=10)
                 #save_history_plot(history_shunt, "shunt", folder_name_logging, ['loss'])
                 model_training_shunt.load_weights(str(Path(folder_name_logging, "shunt_model_weights.h5")))
@@ -353,8 +355,8 @@ if __name__ == '__main__':
                 val_loss_shunt = model_training_shunt.evaluate(x_test, val_dummy_data, verbose=1)
                 print('Loss: {:.5f}'.format(val_loss_shunt))
 
-
-    model_final = modify_model(model_original, layer_indexes_to_delete=range(loc1, loc2+1), shunt_to_insert=model_shunt, layer_name_prefix='final_') # +1 needed because of the way range works
+    with strategy.scope():
+        model_final = modify_model(model_original, layer_indexes_to_delete=range(loc1, loc2+1), shunt_to_insert=model_shunt, layer_name_prefix='final_') # +1 needed because of the way range works
     
     keras.models.save_model(model_final, Path(folder_name_logging, "final_model.h5"))
     logging.info('')
@@ -396,7 +398,8 @@ if __name__ == '__main__':
 
     for layer in model_final.layers:    # reset trainable status of all layers
         layer.trainable = True
-    model_final.compile(loss='categorical_crossentropy', optimizer=keras.optimizers.SGD(lr=learning_rate_first_cycle_final, momentum=0.9, decay=0.0, nesterov=False), metrics=[keras.metrics.categorical_crossentropy, 'accuracy'])
+    with strategy.scope():
+        model_final.compile(loss='categorical_crossentropy', optimizer=keras.optimizers.SGD(lr=learning_rate_first_cycle_final, momentum=0.9, decay=0.0, nesterov=False), metrics=[keras.metrics.categorical_crossentropy, 'accuracy'])
 
     
     print('Test shunt inserted model')
@@ -506,9 +509,9 @@ if __name__ == '__main__':
 
         if training_final_model['finetune_strategy'] == 'unfreeze_all':
             callbacks.append(callback_learning_rate)
-            #for i, layer in enumerate(model_final.layers):
-            #    if i < loc1 and isinstance(layer, keras.layers.BatchNormalization):
-            #        layer.trainable = False
+            for i, layer in enumerate(model_final.layers):
+                if isinstance(layer, keras.layers.BatchNormalization):
+                    layer.trainable = False
 
         if training_final_model['finetune_strategy'] == 'unfreeze_per_epoch_starting_shunt':
             callback_unfreeze = UnfreezeLayersCallback(epochs=epochs_final, epochs_per_unfreeze=2, learning_rate=learning_rate_first_cycle_final, unfreeze_to_index=0, start_at=loc1+len(model_shunt.layers)-2, direction=1)
@@ -526,15 +529,16 @@ if __name__ == '__main__':
                 max_number_transfers = training_final_model.getint('max_number_transfers')
 
         if add_dark_knowledge or add_attention_transfer:
-            model_final_dist = create_knowledge_distillation_model(model_final, model_original, add_dark_knowledge=add_dark_knowledge, temperature=temperature, add_attention_transfer=add_attention_transfer, shunt_locations=[loc1,loc2], index_offset=len(model_shunt.layers)-(loc2-loc1)-2, max_number_transfers=max_number_transfers)
+            with strategy.scope():
+                model_final_dist = create_knowledge_distillation_model(model_final, model_original, add_dark_knowledge=add_dark_knowledge, temperature=temperature, add_attention_transfer=add_attention_transfer, shunt_locations=[loc1,loc2], index_offset=len(model_shunt.layers)-(loc2-loc1)-2, max_number_transfers=max_number_transfers)
             # build loss dict
             loss_distillation = {'Student': 'categorical_crossentropy'}
             for output in model_final_dist.output:
                 output_name = output.name.split('/')[0] # cut off unimportant part
                 if 'a_t_' in output_name or 'dark_knowledge' in output_name:
                     loss_distillation[output_name] = create_mean_squared_diff_loss()
-
-            model_final_dist.compile(loss=loss_distillation, optimizer=keras.optimizers.SGD(lr=learning_rate_first_cycle_final, momentum=0.9, decay=0.0, nesterov=False), metrics={'Student': 'accuracy'})
+            with strategy.scope():
+                model_final_dist.compile(loss=loss_distillation, optimizer=keras.optimizers.SGD(lr=learning_rate_first_cycle_final, momentum=0.9, decay=0.0, nesterov=False), metrics={'Student': 'accuracy'})
             callbacks = [SaveNestedModelCallabck('val_Student_accuracy', str(Path(folder_name_logging, "final_model_weights.h5")), 'Student')]
             callbacks.append(callback_learning_rate)
 
