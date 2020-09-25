@@ -48,17 +48,26 @@ class LearningRateSchedulerCallback(Callback):
             print("Activated second cycle with learning rate = {}".format(self.learning_rate_second_cycle))
             backend.set_value(self.model.optimizer.lr, self.learning_rate_second_cycle)
 
-class SaveNestedModelCallabck(Callback):
+class SaveNestedModelCallback(Callback):
 
-    def __init__(self, observed_value, weights_path, nested_model_name):
-        super(SaveNestedModelCallabck, self).__init__()
+    def __init__(self, observed_value, weights_path, nested_model_name, mode='max'):
+        super(SaveNestedModelCallback, self).__init__()
         self.observed_value = observed_value
-        self.best_value = 0.0
         self.weights_path = weights_path
         self.nested_model_name = nested_model_name
+        self.mode = mode
+        if self.mode == 'max':
+            self.best_value = 0
+        if self.mode == 'min':
+            self.best_value = 1e10
 
     def on_epoch_end(self, epoch, logs=None):
         new_value = logs[self.observed_value]
-        if new_value > self.best_value:
-            self.best_value = new_value
-            self.model.get_layer(name=self.nested_model_name).save_weights(self.weights_path)
+        if self.mode == 'max':
+            if new_value > self.best_value:
+                self.best_value = new_value
+                self.model.get_layer(name=self.nested_model_name).save_weights(self.weights_path)
+        elif self.mode == 'min':
+            if new_value < self.best_value:
+                self.best_value = new_value
+                self.model.get_layer(name=self.nested_model_name).save_weights(self.weights_path)

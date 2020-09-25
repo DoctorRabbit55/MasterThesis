@@ -18,7 +18,7 @@ from CDL.utils.dataset_utils import *
 from CDL.utils.get_knowledge_quotients import get_knowledge_quotients, get_knowledge_quotient
 from CDL.utils.generic_utils import *
 from CDL.utils.keras_utils import extract_feature_maps, modify_model, identify_residual_layer_indexes, create_mean_squared_diff_loss, mean_squared_diff
-from CDL.utils.custom_callbacks import UnfreezeLayersCallback, LearningRateSchedulerCallback, SaveNestedModelCallabck
+from CDL.utils.custom_callbacks import UnfreezeLayersCallback, LearningRateSchedulerCallback, SaveNestedModelCallback
 from CDL.utils.custom_generators import create_imagenet_dataset
 
 import tensorflow as tf
@@ -227,7 +227,7 @@ if __name__ == '__main__':
     
     print('Test original model')
     if dataset_name == 'imagenet':
-        val_loss_original, val_entropy_original, val_acc_original = model_original.evaluate(datagen_val, steps=len_val_data//batch_size_imagenet, verbose=1, use_multiprocessing=True, workers=32, max_queue_size=64)
+        val_loss_original, val_entropy_original, val_acc_original = model_original.evaluate(datagen_val, steps=len_val_data//batch_size_imagenet, verbose=1, use_multiprocessing=False, workers=32, max_queue_size=64)
     elif dataset_name == 'CIFAR10':
         val_loss_original, val_entropy_original, val_acc_original = model_original.evaluate(x_test, y_test, verbose=1)
 
@@ -303,21 +303,20 @@ if __name__ == '__main__':
 
     model_training_shunt = create_shunt_trainings_model(model_original, model_shunt, (loc1, loc2))
     model_training_shunt.compile(loss=mean_squared_diff, optimizer=keras.optimizers.Adam(learning_rate=learning_rate_first_cycle_shunt, decay=0.0))
-    #model_training_shunt.add_loss(mean_squared_diff(None, model_training_shunt.outputs[0]))
 
     if shunt_params['pretrained']:
         if dataset_name == 'imagenet':
-            model_training_shunt.load_weights(shunt_params['weightspath'])
+            model_shunt.load_weights(shunt_params['weightspath'])
             print('Shunt weights loaded successfully!')
         elif dataset_name == 'CIFAR10':
-            model_training_shunt.load_weights(shunt_params['weightspath'])
+            model_shunt.load_weights(shunt_params['weightspath'])
             print('Shunt weights loaded successfully!')
 
     flops_shunt = calculateFLOPs_model(model_shunt)
     
     model_shunt.compile(loss=keras.losses.mean_squared_error, optimizer=keras.optimizers.Adam(learning_rate=learning_rate_first_cycle_shunt, decay=0.0), metrics=[keras.metrics.MeanSquaredError()])
 
-    callback_checkpoint = keras.callbacks.ModelCheckpoint(str(Path(folder_name_logging, "shunt_model_weights.h5")), save_best_only=True, monitor='val_loss', mode='min', save_weights_only=True)
+    callback_checkpoint = SaveNestedModelCallback(weights_path=str(Path(folder_name_logging, "shunt_model_weights.h5")), observed_value='loss', nested_model_name='shunt', mode='min')
     callback_learning_rate = LearningRateSchedulerCallback(epochs_first_cycle=epochs_first_cycle_shunt, learning_rate_second_cycle=learning_rate_second_cycle_shunt)
 
     if modes['test_shunt_model'] or modes['train_shunt_model']:
@@ -328,7 +327,7 @@ if __name__ == '__main__':
                 history_shunt = model_training_shunt.fit(datagen_train, epochs=epochs_shunt, steps_per_epoch=len_train_data // batch_size_imagenet, validation_data=datagen_val, validation_steps=len_val_data//batch_size_imagenet, verbose=1, callbacks=[callback_checkpoint, callback_learning_rate],
                                                          use_multiprocessing=False, workers=32, max_queue_size=64)
                 #save_history_plot(history_shunt, "shunt", folder_name_logging, ['loss'])
-                model_training_shunt.load_weights(str(Path(folder_name_logging, "shunt_model_weights.h5")))
+                model__shunt.load_weights(str(Path(folder_name_logging, "shunt_model_weights.h5")))
 
             if modes['test_shunt_model']:
                 print('Test shunt model')
@@ -346,7 +345,7 @@ if __name__ == '__main__':
                 history_shunt = model_training_shunt.fit(x_train, y=None, batch_size=batch_size_shunt, epochs=epochs_shunt, validation_data=(x_test, val_dummy_data), verbose=1, callbacks=[callback_checkpoint, callback_learning_rate],
                                                          use_multiprocessing=False, workers=1, max_queue_size=64)
 
-                model_training_shunt.load_weights(str(Path(folder_name_logging, "shunt_model_weights.h5")))
+                model__shunt.load_weights(str(Path(folder_name_logging, "shunt_model_weights.h5")))
 
             if modes['test_shunt_model']:
                 print('Test shunt model')
@@ -536,13 +535,13 @@ if __name__ == '__main__':
                     loss_distillation[output_name] = create_mean_squared_diff_loss()
 
             model_final_dist.compile(loss=loss_distillation, optimizer=keras.optimizers.SGD(lr=learning_rate_first_cycle_final, momentum=0.9, decay=0.0, nesterov=False), metrics={'Student': 'accuracy'})
-            callbacks = [SaveNestedModelCallabck('val_Student_accuracy', str(Path(folder_name_logging, "final_model_weights.h5")), 'Student')]
+            callbacks = [SaveNestedModelCallback('val_Student_accuracy', str(Path(folder_name_logging, "final_model_weights.h5")), 'Student')]
             callbacks.append(callback_learning_rate)
 
             if  modes['train_final_model']:
                 print('Train final model:')
                 if dataset_name == 'imagenet':
-                    history_final = model_final_dist.fit(datagen_train, epochs=epochs_final, steps_per_epoch=len_train_data // batch_size_imagenet, validation_data=datagen_val, verbose=1, callbacks=callbacks, use_multiprocessing=True, workers=32, max_queue_size=128)
+                    history_final = model_final_dist.fit(datagen_train, epochs=epochs_final, steps_per_epoch=len_train_data // batch_size_imagenet, validation_data=datagen_val, verbose=1, callbacks=callbacks, use_multiprocessing=False, workers=32, max_queue_size=128)
                 elif dataset_name == 'CIFAR10':
                     history_final = model_final_dist.fit(datagen_train.flow(x_train, y_train, batch_size=batch_size_final), epochs=epochs_final, validation_data=(x_test, y_test), verbose=1, callbacks=callbacks)
                 #save_history_plot(history_final, "final", folder_name_logging, ['categorical_crossentropy', 'loss', 'accuracy'])
