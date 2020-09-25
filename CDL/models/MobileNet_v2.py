@@ -4,7 +4,7 @@ from __future__ import division
 
 import tensorflow as tf
 
-from tensorflow.keras.layers import Input, UpSampling2D, GlobalAveragePooling2D, Dense, Conv2D, BatchNormalization, ReLU, DepthwiseConv2D, InputLayer, Add, Dropout
+from tensorflow.keras.layers import Input, UpSampling2D, GlobalAveragePooling2D, Dense, Conv2D, BatchNormalization, ReLU, DepthwiseConv2D, InputLayer, Add, Dropout, Activation
 from tensorflow.keras import Model
 import tensorflow.keras as keras
 from tensorflow.keras.layers import deserialize as layer_from_config
@@ -73,7 +73,8 @@ def create_mobilenet_v2(input_shape=(32,32,3), num_classes=10, is_pretrained=Fal
                 output_residual.put(x)
 
         x = Dropout(rate=0.2)(x)
-        x = Dense(num_classes, activation='softmax')(x)
+        x = Dense(num_classes, activation=None)(x)
+        x = Activation('softmax')(x)
 
         return Model(inputs=input_net, outputs=x, name='mobilenetv2')
 
@@ -483,8 +484,9 @@ def MobileNetV2(input_shape=None,
 
         if include_top:
             x = layers.GlobalAveragePooling2D()(x)
-            x = layers.Dense(classes, activation='softmax',
+            x = layers.Dense(classes, activation=None,
                             use_bias=True, name='Logits')(x)
+            x = layers.Activation('softmax', name='softmax')(x)
         else:
             if pooling == 'avg':
                 x = layers.GlobalAveragePooling2D()(x)
