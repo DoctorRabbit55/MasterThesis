@@ -327,11 +327,11 @@ if __name__ == '__main__':
                 history_shunt = model_training_shunt.fit(datagen_train, epochs=epochs_shunt, steps_per_epoch=len_train_data // batch_size_imagenet, validation_data=datagen_val, validation_steps=len_val_data//batch_size_imagenet, verbose=1, callbacks=[callback_checkpoint, callback_learning_rate],
                                                          use_multiprocessing=False, workers=32, max_queue_size=64)
                 #save_history_plot(history_shunt, "shunt", folder_name_logging, ['loss'])
-                model__shunt.load_weights(str(Path(folder_name_logging, "shunt_model_weights.h5")))
+                model_shunt.load_weights(str(Path(folder_name_logging, "shunt_model_weights.h5")))
 
             if modes['test_shunt_model']:
                 print('Test shunt model')
-                val_loss_shunt, val_acc_shunt, = model_training_shunt.evaluate(datagen_val, verbose=1)
+                val_loss_shunt, val_acc_shunt, = model_training_shunt.evaluate(datagen_val, steps=len_val_data//batch_size_imagenet, verbose=1)
                 print('Loss: {:.5f}'.format(val_loss_shunt))
                 print('Accuracy: {:.5f}'.format(val_acc_shunt))
 
@@ -418,7 +418,7 @@ if __name__ == '__main__':
         print('Weights for final model loaded successfully!')
         print('Test shunt inserted model with loaded weights')
         if dataset_name == 'imagenet':
-            val_loss_inserted, val_entropy_inserted, val_acc_inserted = model_final.evaluate(datagen_val, verbose=1)
+            val_loss_inserted, val_entropy_inserted, val_acc_inserted = model_final.evaluate(datagen_val, steps=len_val_data//batch_size_imagenet, verbose=1)
         elif dataset_name == 'CIFAR10':
             val_loss_inserted, val_entropy_inserted, val_acc_inserted = model_final.evaluate(x_test, y_test, verbose=1)      
 
