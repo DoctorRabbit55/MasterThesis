@@ -17,6 +17,9 @@ def create_shunt_trainings_model(model, model_shunt, shunt_locations):
     output_original_model = Flatten()(output_original_model)
     #output_original_model = K.l2_normalize(output_original_model,axis=1)
 
+    #print(model.layers[shunt_locations[0]-1].name)
+    #print(model.layers[shunt_locations[1]].name)
+
     x = model_shunt(shunt_input)
 
     x = Flatten()(x)

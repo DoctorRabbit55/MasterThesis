@@ -45,6 +45,6 @@ def get_knowledge_quotient(model, datagen, val_acc_model, locations):
     if isinstance(datagen, tuple):
         _, val_acc = model_reduced.evaluate(datagen[0], datagen[1], verbose=1)
     else:
-        _, val_acc = model_reduced.evaluate(datagen, verbose=1)
+        _, val_acc = model_reduced.evaluate(datagen, verbose=1, use_multiprocessing=True, workers=32, max_queue_size=128)
 
     return val_acc/val_acc_model

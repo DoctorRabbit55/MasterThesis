@@ -31,10 +31,10 @@ def create_imagenet_dataset(file_path, batch_size=64):
         }
 
         data = tf.io.parse_single_example(example, feature_descriptor)
-        img = data['image_raw']
+        
         label = data['label']
+        img = tf.image.decode_jpeg(data['image_raw'], channels=3)
 
-        img = tf.image.decode_jpeg(img, channels=3)
         img = tf.image.convert_image_dtype(img, tf.float32)
         #img = tf.image.central_crop(img, 0.875)
         #img = tf.expand_dims(img, 0)
@@ -45,12 +45,13 @@ def create_imagenet_dataset(file_path, batch_size=64):
 
         label = tf.one_hot(indices=label, depth=1000)
         return img, label
-    ds = ds.map(parse_function, num_parallel_calls=12)
-    
-    ds = ds.shuffle(2000)
+
+    ds = ds.shuffle(2024)
+    ds = ds.cache()
+    ds = ds.map(parse_function, num_parallel_calls=tf.data.experimental.AUTOTUNE)
     ds = ds.batch(batch_size)
+    ds = ds.repeat()
     ds = ds.prefetch(tf.data.experimental.AUTOTUNE)
-    ds = ds.repeat(100)
 
     return ds
 
