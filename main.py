@@ -153,9 +153,9 @@ if __name__ == '__main__':
         len_val_data = 50000
         batch_size_imagenet = 128
 
-        datagen_val = create_imagenet_dataset(dataset_val_image_path, batch_size=batch_size_imagenet)
+        datagen_val = create_imagenet_dataset(dataset_val_image_path, should_repeat=False, batch_size=batch_size_imagenet)
 
-        datagen_train = create_imagenet_dataset(dataset_train_image_path, batch_size=batch_size_imagenet)
+        datagen_train = create_imagenet_dataset(dataset_train_image_path, should_repeat=True, batch_size=batch_size_imagenet)
 
         print('Imagenet was loaded successfully!')
 
@@ -219,7 +219,7 @@ if __name__ == '__main__':
     if modes['train_original_model']:
         print('Train original model:')
         if dataset_name == 'imagenet':
-            history_original = model_original.fit(datagen_train, epochs=epochs_original, steps_per_epoch=len_train_data // batch_size_imagenet, validation_data=datagen_val, validation_steps=len_val_data//batch_size_imagenet, verbose=1, callbacks=[callback_checkpoint, callback_learning_rate])
+            history_original = model_original.fit(datagen_train, epochs=epochs_original, steps_per_epoch=len_train_data // batch_size_imagenet, validation_data=datagen_val, verbose=1, callbacks=[callback_checkpoint, callback_learning_rate])
         elif dataset_name == 'CIFAR10':
             history_original = model_original.fit(datagen_train.flow(x_train, y_train, batch_size=batch_size_original), epochs=epochs_original, validation_data=(x_test, y_test), verbose=1, callbacks=[callback_checkpoint, callback_learning_rate])
 
@@ -231,7 +231,7 @@ if __name__ == '__main__':
     
     print('Test original model')
     if dataset_name == 'imagenet':
-        val_loss_original, val_entropy_original, val_acc_original = model_original.evaluate(datagen_val, steps=len_val_data//batch_size_imagenet, verbose=1, use_multiprocessing=False, workers=32, max_queue_size=64)
+        val_loss_original, val_entropy_original, val_acc_original = model_original.evaluate(datagen_val, verbose=1, use_multiprocessing=False, workers=32, max_queue_size=64)
     elif dataset_name == 'CIFAR10':
         val_loss_original, val_entropy_original, val_acc_original = model_original.evaluate(x_test, y_test, verbose=1)
 
@@ -330,14 +330,14 @@ if __name__ == '__main__':
         if dataset_name == 'imagenet':
 
             if modes['train_shunt_model']:
-                history_shunt = model_training_shunt.fit(datagen_train, epochs=epochs_shunt, steps_per_epoch=len_train_data // batch_size_imagenet, validation_data=datagen_val, validation_steps=len_val_data//batch_size_imagenet, verbose=1, callbacks=[callback_checkpoint, callback_learning_rate],
+                history_shunt = model_training_shunt.fit(datagen_train, epochs=epochs_shunt, steps_per_epoch=len_train_data // batch_size_imagenet, validation_data=datagen_val, verbose=1, callbacks=[callback_checkpoint, callback_learning_rate],
                                                          use_multiprocessing=False, workers=32, max_queue_size=64)
                 #save_history_plot(history_shunt, "shunt", folder_name_logging, ['loss'])
                 model_shunt.load_weights(str(Path(folder_name_logging, "shunt_model_weights.h5")))
 
             if modes['test_shunt_model']:
                 print('Test shunt model')
-                val_loss_shunt, val_acc_shunt, = model_training_shunt.evaluate(datagen_val, steps=len_val_data//batch_size_imagenet, verbose=1)
+                val_loss_shunt, val_acc_shunt, = model_training_shunt.evaluate(datagen_val, verbose=1)
                 print('Loss: {:.5f}'.format(val_loss_shunt))
                 print('Accuracy: {:.5f}'.format(val_acc_shunt))
 
@@ -408,7 +408,7 @@ if __name__ == '__main__':
     
     print('Test shunt inserted model')
     if dataset_name == 'imagenet':
-        val_loss_inserted, val_entropy_inserted, val_acc_inserted = model_final.evaluate(datagen_val, steps=len_val_data//batch_size_imagenet, verbose=1)
+        val_loss_inserted, val_entropy_inserted, val_acc_inserted = model_final.evaluate(datagen_val, verbose=1)
     elif dataset_name == 'CIFAR10':
         val_loss_inserted, val_entropy_inserted, val_acc_inserted = model_final.evaluate(x_test, y_test, verbose=1)
         #predictions = model_final.predict(x_test, verbose=1)
@@ -425,7 +425,7 @@ if __name__ == '__main__':
         print('Weights for final model loaded successfully!')
         print('Test shunt inserted model with loaded weights')
         if dataset_name == 'imagenet':
-            val_loss_inserted, val_entropy_inserted, val_acc_inserted = model_final.evaluate(datagen_val, steps=len_val_data//batch_size_imagenet, verbose=1)
+            val_loss_inserted, val_entropy_inserted, val_acc_inserted = model_final.evaluate(datagen_val, verbose=1)
         elif dataset_name == 'CIFAR10':
             val_loss_inserted, val_entropy_inserted, val_acc_inserted = model_final.evaluate(x_test, y_test, verbose=1)      
 
@@ -550,7 +550,7 @@ if __name__ == '__main__':
             if  modes['train_final_model']:
                 print('Train final model:')
                 if dataset_name == 'imagenet':
-                    history_final = model_final_dist.fit(datagen_train, epochs=epochs_final, steps_per_epoch=len_train_data//batch_size_imagenet, validation_data=datagen_val, validation_steps=len_val_data//batch_size_imagenet, verbose=1, callbacks=callbacks, use_multiprocessing=False, workers=32, max_queue_size=128)
+                    history_final = model_final_dist.fit(datagen_train, epochs=epochs_final, steps_per_epoch=len_train_data//batch_size_imagenet, validation_data=datagen_val, verbose=1, callbacks=callbacks, use_multiprocessing=False, workers=32, max_queue_size=128)
                 elif dataset_name == 'CIFAR10':
                     history_final = model_final_dist.fit(datagen_train.flow(x_train, y_train, batch_size=batch_size_final), epochs=epochs_final, validation_data=(x_test, y_test), verbose=1, callbacks=callbacks)
                 #save_history_plot(history_final, "final", folder_name_logging, ['categorical_crossentropy', 'loss', 'accuracy'])
@@ -562,7 +562,7 @@ if __name__ == '__main__':
             if  modes['train_final_model']:
                 print('Train final model:')
                 if dataset_name == 'imagenet':
-                    history_final = model_final.fit(datagen_train, epochs=epochs_original, steps_per_epoch=len_train_data // batch_size_imagenet, validation_data=datagen_val, validation_steps=len_val_data//batch_size_imagenet, verbose=1, callbacks=callbacks, use_multiprocessing=False, workers=32, max_queue_size=128)
+                    history_final = model_final.fit(datagen_train, epochs=epochs_original, steps_per_epoch=len_train_data // batch_size_imagenet, validation_data=datagen_val, verbose=1, callbacks=callbacks, use_multiprocessing=False, workers=32, max_queue_size=128)
                 elif dataset_name == 'CIFAR10':
                     history_final = model_final.fit(datagen_train.flow(x_train, y_train, batch_size=batch_size_final), epochs=epochs_final, validation_data=(x_test, y_test), verbose=1, callbacks=callbacks)
                 #save_history_plot(history_final, "final", folder_name_logging, ['categorical_crossentropy', 'loss', 'accuracy'])
@@ -571,7 +571,7 @@ if __name__ == '__main__':
 
         print('Test_final_model')
         if dataset_name == 'imagenet':
-            val_loss_finetuned, val_entropy_finetuned, val_acc_finetuned = model_final.evaluate(datagen_val, steps=len_val_data//batch_size_imagenet, verbose=1)
+            val_loss_finetuned, val_entropy_finetuned, val_acc_finetuned = model_final.evaluate(datagen_val, verbose=1)
         elif dataset_name == 'CIFAR10':
             val_loss_finetuned, val_entropy_finetuned, val_acc_finetuned = model_final.evaluate(x_test, y_test, verbose=1)
         print('Loss: {}'.format(val_loss_finetuned))

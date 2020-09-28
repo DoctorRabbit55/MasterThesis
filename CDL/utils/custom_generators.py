@@ -16,13 +16,13 @@ from PIL import Image
 import matplotlib.pyplot as plt
        
 
-def create_imagenet_dataset(file_path, batch_size=64):
+def create_imagenet_dataset(file_path, should_repeat=True, batch_size=64):
 
     if not isinstance(file_path, Path):     # convert str to Path
         file_path = Path(file_path)
 
     record_file_list = list(map(str, file_path.glob("*")))
-    ds = tf.data.TFRecordDataset(record_file_list)
+    ds = tf.data.TFRecordDataset(record_file_list, num_parallel_reads=tf.data.experimental.AUTOTUNE)
     
     def parse_function(example):
         feature_descriptor = {
@@ -50,7 +50,8 @@ def create_imagenet_dataset(file_path, batch_size=64):
     ds = ds.cache()
     ds = ds.map(parse_function, num_parallel_calls=tf.data.experimental.AUTOTUNE)
     ds = ds.batch(batch_size)
-    ds = ds.repeat()
+    if should_repeat:
+        ds = ds.repeat()
     ds = ds.prefetch(tf.data.experimental.AUTOTUNE)
 
     return ds
