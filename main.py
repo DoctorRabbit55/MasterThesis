@@ -17,7 +17,8 @@ from CDL.utils.calculateFLOPS import calculateFLOPs_model, calculateFLOPs_blocks
 from CDL.utils.dataset_utils import *
 from CDL.utils.get_knowledge_quotients import get_knowledge_quotients, get_knowledge_quotient
 from CDL.utils.generic_utils import *
-from CDL.utils.keras_utils import extract_feature_maps, modify_model, identify_residual_layer_indexes, create_mean_squared_diff_loss, mean_squared_diff
+from CDL.utils.keras_utils import extract_feature_maps, modify_model, identify_residual_layer_indexes
+from CDL.utils.custom_loss_metric import create_mean_squared_diff_loss, mean_squared_diff
 from CDL.utils.custom_callbacks import UnfreezeLayersCallback, LearningRateSchedulerCallback, SaveNestedModelCallback
 from CDL.utils.custom_generators import create_imagenet_dataset
 
@@ -176,21 +177,31 @@ if __name__ == '__main__':
                 model_original = create_mobilenet_v2(is_pretrained=False, num_classes=num_classes, input_shape=input_shape, mobilenet_shape=(input_image_size,input_image_size,3), num_change_strides=number_change_stride_layers)
 
 
-    if 'MobileNetV3' in model_type:
+        if 'MobileNetV3' in model_type:
+            is_small = True
+            if model_type[11:] == 'Large':
+                is_small = False
 
-        is_small = True
-        if model_type[11:] == 'Large':
-            is_small = False
-
-        if load_model_from_file:
-            model_original = keras.models.load_model(model_file_path)
-        elif weights_file_path == 'imagenet':
-            model_original = create_mobilenet_v3(is_pretrained=True, num_classes=num_classes, is_small=is_small, input_shape=input_shape, mobilenet_shape=(input_image_size,input_image_size,3), num_change_strides=number_change_stride_layers)           
-        else:
-            model_original = create_mobilenet_v3(is_pretrained=False, num_classes=num_classes, is_small=is_small, input_shape=input_shape, mobilenet_shape=(input_image_size,input_image_size,3), num_change_strides=number_change_stride_layers)
+            if load_model_from_file:
+                model_original = keras.models.load_model(model_file_path)
+            elif weights_file_path == 'imagenet':
+                model_original = create_mobilenet_v3(is_pretrained=True, num_classes=num_classes, is_small=is_small, input_shape=input_shape, mobilenet_shape=(input_image_size,input_image_size,3), num_change_strides=number_change_stride_layers)           
+            else:
+                model_original = create_mobilenet_v3(is_pretrained=False, num_classes=num_classes, is_small=is_small, input_shape=input_shape, mobilenet_shape=(input_image_size,input_image_size,3), num_change_strides=number_change_stride_layers)
 
     if pretrained:
-        model_original.load_weights(weights_file_path)
+        if model_type == 'MobileNetV2':
+            try:                        # deals with 
+                model_original.load_weights(weights_file_path)
+            except:
+                model_tmp = keras.models.Model(model_original.input, model_original.layers[-2].output)
+                print(len(model_tmp.layers))
+                model_tmp.load_weights(weights_file_path)
+                weights = model_tmp.get_weights()
+                new_weights = np.append(weights, np.ndarray(shape=[0]))
+                model_original.set_weights(new_weights)
+        else:
+            model_original.load_weights(weights_file_path)
         print('Weights loaded successfully!')
 
 
@@ -607,33 +618,33 @@ if __name__ == '__main__':
             model_original.predict(x_test, verbose=1, batch_size=1)
             model_final.predict(x_test, verbose=1, batch_size=1)
 
-        for i in range(5):
+        for i in range(1):
 
             start_original = time.process_time()
             if dataset_name == 'imagenet':
-                model_original.predict(datagen_val, verbose=1, batch_size=1, steps=10000)
+                model_original.predict(datagen_val, verbose=1, batch_size=1, steps=100)
             elif dataset_name == 'CIFAR10':
                 model_original.predict(x_test, verbose=1, batch_size=1)
             end_original = time.process_time()
 
             start_final = time.process_time()
             if dataset_name == 'imagenet':
-                model_final.predict(datagen_val, verbose=1, batch_size=1, steps=10000)
+                model_final.predict(datagen_val, verbose=1, batch_size=1, steps=100)
             elif dataset_name == 'CIFAR10':
                 model_final.predict(x_test, verbose=1, batch_size=1)           
             end_final = time.process_time()
 
-            time_original = (end_original-start_original)/len(x_test)
-            time_final = (end_final-start_final)/len(x_test)
+            time_original = (end_original-start_original)/len_val_data
+            time_final = (end_final-start_final)/len_val_data
 
             original_list.append(time_original)
             final_list.append(time_final)
     
-        for i in range(5):
+        for i in range(1):
 
             start_final = time.process_time()
             if dataset_name == 'imagenet':
-                model_final.predict(datagen_val, verbose=1, batch_size=1, steps=10000)
+                model_final.predict(datagen_val, verbose=1, batch_size=1, steps=100)
             elif dataset_name == 'CIFAR10':
                 model_final.predict(x_test, verbose=1, batch_size=1)           
             end_final = time.process_time()
@@ -641,13 +652,13 @@ if __name__ == '__main__':
 
             start_original = time.process_time()
             if dataset_name == 'imagenet':
-                model_original.predict(datagen_val, verbose=1, batch_size=1, steps=10000)
+                model_original.predict(datagen_val, verbose=1, batch_size=1, steps=100)
             elif dataset_name == 'CIFAR10':
                 model_original.predict(x_test, verbose=1, batch_size=1)
             end_original = time.process_time()
 
-            time_original = (end_original-start_original)/len(x_test)
-            time_final = (end_final-start_final)/len(x_test)
+            time_original = (end_original-start_original)/len_val_data
+            time_final = (end_final-start_final)/len_val_data
 
             original_list.append(time_original)
             final_list.append(time_final)

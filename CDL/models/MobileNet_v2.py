@@ -16,7 +16,7 @@ import numpy as np
 
 import queue
 
-def create_mobilenet_v2(input_shape=(32,32,3), num_classes=10, is_pretrained=False, mobilenet_shape=(224,224,3), num_change_strides=0):
+def create_mobilenet_v2(input_shape=(32,32,3), num_classes=10, is_pretrained=False, mobilenet_shape=(224,224,3), num_change_strides=0, seperate_softmax=True):
 
     assert(input_shape[0] == input_shape[1])
     assert(224 % input_shape[0] == 0)
@@ -25,12 +25,12 @@ def create_mobilenet_v2(input_shape=(32,32,3), num_classes=10, is_pretrained=Fal
 
     if is_pretrained:
 
-        mobilenet = MobileNetV2(input_shape=mobilenet_shape, include_top=True, alpha=1.0, weights='imagenet', backend=keras.backend, layers=keras.layers, models=keras.models, utils=keras.utils)
+        mobilenet = MobileNetV2(input_shape=mobilenet_shape, include_top=True, alpha=1.0, weights='imagenet', seperate_softmax=seperate_softmax, backend=keras.backend, layers=keras.layers, models=keras.models, utils=keras.utils)
 
         return mobilenet
 
     else:
-        mobilenet = MobileNetV2(input_shape=mobilenet_shape, include_top=True, weights=None, classes=num_classes, output_stride=None, backend=keras.backend, layers=keras.layers, models=keras.models, utils=keras.utils)
+        mobilenet = MobileNetV2(input_shape=mobilenet_shape, include_top=True, weights=None, classes=num_classes, seperate_softmax=seperate_softmax, output_stride=None, backend=keras.backend, layers=keras.layers, models=keras.models, utils=keras.utils)
 
         scale_factor = mobilenet_shape[0] // input_shape[0]
 
@@ -42,7 +42,7 @@ def create_mobilenet_v2(input_shape=(32,32,3), num_classes=10, is_pretrained=Fal
         else:
             x = input_net
 
-        for layer in mobilenet.layers[1:-1]:
+        for layer in mobilenet.layers[1:-2]:
 
             config = layer.get_config()
 
@@ -210,6 +210,7 @@ def MobileNetV2(input_shape=None,
                 pooling=None,
                 classes=1000,
                 output_stride=None,
+                seperate_softmax=True,
                 **kwargs):
     """Instantiates the MobileNetV2 architecture.
 
@@ -484,9 +485,13 @@ def MobileNetV2(input_shape=None,
 
         if include_top:
             x = layers.GlobalAveragePooling2D()(x)
-            x = layers.Dense(classes, activation=None,
-                            use_bias=True, name='Logits')(x)
-            x = layers.Activation('softmax', name='softmax')(x)
+            if seperate_softmax:
+                x = layers.Dense(classes, activation=None,
+                                use_bias=True, name='Logits')(x)
+                x = layers.Activation('softmax', name='softmax')(x)
+            else:
+                x = layers.Dense(classes, activation='softmax',
+                                use_bias=True, name='Logits')(x)
         else:
             if pooling == 'avg':
                 x = layers.GlobalAveragePooling2D()(x)

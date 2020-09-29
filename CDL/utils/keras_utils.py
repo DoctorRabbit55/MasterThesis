@@ -14,36 +14,6 @@ from tensorflow.keras.layers import ReLU, Lambda
 from tensorflow.keras.applications import MobileNetV2
 #from keras_applications.mobilenet_v3 import MobileNetV3Small
 
-def mean_squared_diff(y_true, y_pred):
-    return K.mean(K.square(y_pred))
-
-
-def create_mean_squared_diff_loss(factor=1):
-    def mean_squared_diff(y_true, y_pred):
-        return factor*K.mean(K.square(y_pred))
-
-    return mean_squared_diff
-
-def mean_iou(y_true, y_pred):
-    nb_classes = K.int_shape(y_pred)[-1]
-    iou = []
-    pred_pixels = K.argmax(y_pred, axis=-1)
-    true_pixels = K.argmax(y_true, axis=-1)
-    for i in range(1, nb_classes): # exclude first label (background) and last label (void)
-        true_labels = K.equal(true_pixels, i)
-        pred_labels = K.equal(pred_pixels, i)
-        inter = tf.cast(true_labels & pred_labels, dtype=tf.int32)
-        union = tf.cast(true_labels | pred_labels, dtype=tf.int32)
-        legal_batches = K.sum(tf.cast(true_labels, dtype=tf.int32), axis=1)>0
-        ious = K.sum(inter, axis=1)/K.sum(union, axis=1)
-        iou.append(K.mean(ious[legal_batches]))
-
-    iou = tf.stack(iou)
-    legal_labels = ~tf.math.is_nan(iou)
-    iou = iou[legal_labels]
-
-    return K.mean(iou)
-
 class HardSwish(Activation):
 
     def __init_(self, activation, **kwargs):
