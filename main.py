@@ -190,18 +190,7 @@ if __name__ == '__main__':
                 model_original = create_mobilenet_v3(is_pretrained=False, num_classes=num_classes, is_small=is_small, input_shape=input_shape, mobilenet_shape=(input_image_size,input_image_size,3), num_change_strides=number_change_stride_layers)
 
     if pretrained:
-        if model_type == 'MobileNetV2':
-            try:                        # deals with 
-                model_original.load_weights(weights_file_path)
-            except:
-                model_tmp = keras.models.Model(model_original.input, model_original.layers[-2].output)
-                print(len(model_tmp.layers))
-                model_tmp.load_weights(weights_file_path)
-                weights = model_tmp.get_weights()
-                new_weights = np.append(weights, np.ndarray(shape=[0]))
-                model_original.set_weights(new_weights)
-        else:
-            model_original.load_weights(weights_file_path)
+        model_original.load_weights(weights_file_path)
         print('Weights loaded successfully!')
 
 
